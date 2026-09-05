@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from "./constants.js";
 import storage from "./storage.js";
+import { extractTransactionsFromPDFFree } from "./pdfParserFree.js";
 
 /* ------------------------------------------------------------------ */
 /* Tokens — paleta Moon                                                */
@@ -548,6 +549,7 @@ function TransactionRow({ tx, onEdit, onDuplicate, onDelete, confirming, setConf
 /* ------------------------------------------------------------------ */
 function OnboardingModal({ transactions, onAddTransactions, onFinish }) {
   const [step, setStep] = useState("pdf"); // pdf -> review -> manual -> summary
+  const [method, setMethod] = useState("free"); // "free" (grátis, sem IA) | "ai" (com IA, requer chave configurada)
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [extracted, setExtracted] = useState([]);
@@ -566,10 +568,16 @@ function OnboardingModal({ transactions, onAddTransactions, onFinish }) {
     setError("");
     setIsLoading(true);
     try {
-      const base64 = await fileToBase64(file);
-      const list = await extractTransactionsFromPDF(base64);
+      const list = method === "free"
+        ? await extractTransactionsFromPDFFree(file)
+        : await extractTransactionsFromPDF(await fileToBase64(file));
+
       if (list.length === 0) {
-        setError("Não encontrei lançamentos nesse PDF. Você pode tentar outro arquivo ou pular esta etapa.");
+        setError(
+          method === "free"
+            ? "Não consegui identificar lançamentos automaticamente nesse PDF. Você pode tentar a leitura com IA, outro arquivo, ou pular esta etapa e lançar na mão."
+            : "Não encontrei lançamentos nesse PDF. Você pode tentar outro arquivo ou pular esta etapa."
+        );
       } else {
         setExtracted(list);
         setSelected(new Set(list.map((t) => t.id)));
@@ -623,9 +631,41 @@ function OnboardingModal({ transactions, onAddTransactions, onFinish }) {
             <div className="w-11 h-11 rounded-full flex items-center justify-center mb-3" style={{ background: `linear-gradient(135deg, ${C.lavender}, ${C.purpleDark})` }}>
               <FileText size={19} color={C.text} />
             </div>
-            <h2 className="text-base font-medium mb-1" style={{ color: C.text }}>Bem-vindo(a) ao Finance OS</h2>
+            <h2 className="text-base font-medium mb-1" style={{ color: C.text }}>Bem-vindo(a) ao UaiConta</h2>
             <p className="text-sm mb-4" style={{ color: C.textSoft }}>
               Envie o PDF de uma fatura de cartão, conta de consumo ou extrato para eu identificar os lançamentos automaticamente.
+            </p>
+
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setMethod("free")}
+                className="flex-1 py-2 rounded-xl text-xs font-medium"
+                style={{
+                  background: method === "free" ? `linear-gradient(135deg, ${C.lavender}, ${C.purpleDark})` : "transparent",
+                  color: method === "free" ? C.text : C.textSoft,
+                  border: `1px solid ${method === "free" ? "transparent" : C.divider}`,
+                }}
+              >
+                Leitura gratuita
+              </button>
+              <button
+                type="button"
+                onClick={() => setMethod("ai")}
+                className="flex-1 py-2 rounded-xl text-xs font-medium"
+                style={{
+                  background: method === "ai" ? `linear-gradient(135deg, ${C.lavender}, ${C.purpleDark})` : "transparent",
+                  color: method === "ai" ? C.text : C.textSoft,
+                  border: `1px solid ${method === "ai" ? "transparent" : C.divider}`,
+                }}
+              >
+                Leitura com IA
+              </button>
+            </div>
+            <p className="text-xs mb-4" style={{ color: C.textSoft }}>
+              {method === "free"
+                ? "Lê o texto do PDF direto no seu navegador e tenta reconhecer data, valor e descrição por padrão de texto. Sem custo, sem chave de API — mas pode errar em extratos com layout incomum, então confira antes de importar."
+                : "Envia o PDF para a IA identificar os lançamentos com mais precisão. Requer a variável ANTHROPIC_API_KEY configurada no servidor (tem custo por uso, geralmente centavos por documento)."}
             </p>
 
             <label
@@ -680,6 +720,7 @@ function OnboardingModal({ transactions, onAddTransactions, onFinish }) {
             </h2>
             <p className="text-sm mb-3" style={{ color: C.textSoft }}>
               Confira e desmarque o que não quiser importar.
+              {method === "free" && " A leitura gratuita é uma estimativa por padrão de texto — vale conferir valores e datas com atenção."}
             </p>
             <div className="flex flex-col gap-1 mb-4 max-h-72 overflow-y-auto pfos-scroll">
               {extracted.map((tx) => (
@@ -1050,7 +1091,7 @@ export default function PersonalFinanceOS() {
       <aside className="hidden md:flex flex-col w-56 shrink-0 p-4 gap-1" style={{ borderRight: `1px solid ${C.divider}` }}>
         <div className="flex items-center gap-2 px-2 mb-6">
           <div className="w-7 h-7 rounded-lg" style={{ background: `linear-gradient(135deg, ${C.lavender}, ${C.purpleDark})` }} />
-          <span className="text-sm font-semibold" style={{ color: C.text }}>Finance OS</span>
+          <span className="text-sm font-semibold" style={{ color: C.text }}>UaiConta</span>
         </div>
         {[
           { icon: Home, label: "Visão geral", active: true },
