@@ -1,7 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import {
-  IconArrowsRepeat,
   IconCategory,
   IconChartPie,
   IconCreditCard,
@@ -23,7 +22,7 @@ const items = [
   { icon: IconCreditCard, title: 'Cartões', text: 'Limites, fechamento, vencimento e parcelas.', to: ROUTES.cards },
   { icon: IconCategory, title: 'Categorias', text: 'Crie categorias próprias para análises melhores.', to: ROUTES.categories },
   { icon: IconReceipt, title: 'Rendas', text: 'Edite salário, freelance e outras fontes.', to: ROUTES.incomeSources },
-  { icon: IconArrowsRepeat, title: 'Recorrências', text: 'Planeje receitas, despesas e aportes futuros.', to: ROUTES.recurrences },
+  { icon: IconSettings, title: 'Recorrências', text: 'Planeje receitas, despesas e aportes futuros.', to: ROUTES.recurrences },
   { icon: IconChartPie, title: 'Orçamentos', text: 'Defina limites e acompanhe o que já foi usado.', to: ROUTES.budgets },
   { icon: IconTargetArrow, title: 'Metas', text: 'Acompanhe objetivos e reservas.', to: ROUTES.goals },
   { icon: IconFileInvoice, title: 'Notas e comprovantes', text: 'PDF, imagem, câmera e original privado.', to: ROUTES.receipts },
