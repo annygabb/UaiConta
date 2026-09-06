@@ -1,6 +1,7 @@
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
 import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
-import { CATEGORIES, PAYMENT_METHODS } from "./constants.js";
+import { CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from "./constants.js";
+import { isoDate, normalizeDescription, uid } from "./utils.js";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
@@ -23,148 +24,161 @@ const CATEGORY_KEYWORDS = {
   Saúde: ["farmacia", "farmácia", "hospital", "clinica", "clínica", "laboratorio", "laboratório"],
   Psicóloga: ["psicolog"],
   Personal: ["personal trainer", "academia", "personal"],
-  Lazer: ["cinema", "streaming", "netflix", "spotify"],
-  Diversão: ["bar ", "balada", "show"],
-  Investimentos: ["aplicação", "aplicacao", "investimento", "corretora", "tesouro"],
+  Lazer: ["cinema", "streaming", "netflix", "spotify", "teatro"],
+  Diversão: ["bar ", "balada", "show", "evento"],
 };
 
 const PAYMENT_KEYWORDS = {
   Pix: ["pix"],
-  "Cartão de crédito": ["cartao de credito", "cartão de crédito", "credito", "crédito"],
+  "Cartão de crédito": ["cartao de credito", "cartão de crédito", "credito", "crédito", "fatura"],
   "Cartão de débito": ["cartao de debito", "cartão de débito", "debito", "débito"],
   Dinheiro: ["dinheiro", "especie", "espécie", "saque"],
-  Boleto: ["boleto", "fatura", "conta de consumo", "concessionaria", "concessionária"],
+  Boleto: ["boleto", "conta de consumo", "concessionaria", "concessionária"],
 };
 
 function guessFromKeywords(text, dict, fallback) {
   const lower = text.toLowerCase();
   for (const [label, words] of Object.entries(dict)) {
-    if (words.some((w) => lower.includes(w))) return label;
+    if (words.some((word) => lower.includes(word))) return { label, matched: true };
   }
-  return fallback;
+  return { label: fallback, matched: false };
 }
 
-function uid() {
-  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+export function normalizeAmount(raw) {
+  const cleaned = String(raw).replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
+  const number = Number(cleaned);
+  return Number.isFinite(number) ? Math.abs(number) : null;
 }
 
-function isoDate(d) {
-  return d.toISOString().slice(0, 10);
-}
-
-function normalizeAmount(raw) {
-  const cleaned = raw.replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? Math.abs(n) : null;
-}
-
-function normalizeDate(raw, referenceYear) {
-  // dd/mm/yyyy ou dd/mm
-  const slash = raw.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
+export function normalizeDate(raw, referenceYear = new Date().getFullYear()) {
+  const value = String(raw).trim();
+  const slash = value.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
   if (slash) {
-    const [, d, m, y] = slash;
-    let year = y ? Number(y) : referenceYear;
+    const [, day, month, yearRaw] = slash;
+    let year = yearRaw ? Number(yearRaw) : referenceYear;
     if (year < 100) year += 2000;
-    const date = new Date(year, Number(m) - 1, Number(d));
+    const date = new Date(year, Number(month) - 1, Number(day));
     if (!Number.isNaN(date.getTime())) return isoDate(date);
   }
-  // "10 ago" ou "10 de agosto"
-  const monthName = raw.match(/^(\d{1,2})\s*(?:de\s*)?([a-zç]{3})/i);
+  const monthName = value.match(/^(\d{1,2})\s*(?:de\s*)?([a-zç]{3})/i);
   if (monthName) {
-    const [, d, monAbbr] = monthName;
-    const key = monAbbr.toLowerCase().slice(0, 3);
-    if (MONTHS_PT[key]) {
-      const date = new Date(referenceYear, Number(MONTHS_PT[key]) - 1, Number(d));
+    const [, day, monthRaw] = monthName;
+    const month = MONTHS_PT[monthRaw.toLowerCase().slice(0, 3)];
+    if (month) {
+      const date = new Date(referenceYear, Number(month) - 1, Number(day));
       if (!Number.isNaN(date.getTime())) return isoDate(date);
     }
   }
   return null;
 }
 
-/**
- * Extrai o texto de todas as páginas do PDF usando pdf.js, 100% no navegador.
- */
 async function extractRawText(file) {
   const buffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
   let fullText = "";
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent();
-    const lineText = content.items.map((it) => it.str).join(" ");
-    fullText += lineText + "\n";
+    fullText += `${content.items.map((item) => item.str).join(" ")}\n`;
   }
   return fullText;
 }
 
-/**
- * Parser heurístico (regex) que roda inteiramente no navegador — sem IA,
- * sem chave de API, sem custo. Menos preciso que a leitura por IA, mas
- * gratuito e funciona offline após o PDF ser carregado.
- */
-export async function extractTransactionsFromPDFFree(file) {
-  const text = await extractRawText(file);
-  const referenceYear = new Date().getFullYear();
+export function transactionFingerprint(transaction) {
+  return [
+    transaction.date,
+    Number(transaction.amount || 0).toFixed(2),
+    normalizeDescription(transaction.description),
+    transaction.paymentMethod || "",
+  ].join("|");
+}
 
-  // Quebra em "linhas" por padrões de data, já que pdf.js às vezes junta tudo numa string só.
+export function markPossibleDuplicates(imported, existing = []) {
+  const existingKeys = new Set(existing.map(transactionFingerprint));
+  const batchKeys = new Set();
+  return imported.map((item) => {
+    const key = transactionFingerprint(item);
+    const duplicate = existingKeys.has(key) || batchKeys.has(key);
+    batchKeys.add(key);
+    return { ...item, __possibleDuplicate: duplicate };
+  });
+}
+
+export function parseFinancialText(text, options = {}) {
+  const referenceYear = options.referenceYear || new Date().getFullYear();
+  const sourceFile = options.sourceFile || "";
   const dateAnchor = /(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{1,2}\s*(?:de\s*)?[a-zç]{3,9})/gi;
-  const amountPattern = /-?R?\$?\s?\d{1,3}(?:\.\d{3})*,\d{2}/g;
+  const amountPattern = /-?R?\$?\s?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}/g;
 
-  const segments = [];
-  let match;
   const anchors = [];
-  while ((match = dateAnchor.exec(text)) !== null) {
-    anchors.push({ index: match.index, value: match[0] });
-  }
-  for (let i = 0; i < anchors.length; i++) {
-    const start = anchors[i].index;
-    const end = i + 1 < anchors.length ? anchors[i + 1].index : text.length;
-    segments.push({ dateRaw: anchors[i].value, chunk: text.slice(start, end) });
-  }
+  let match;
+  while ((match = dateAnchor.exec(text)) !== null) anchors.push({ index: match.index, value: match[0] });
 
-  const results = [];
-  segments.forEach(({ dateRaw, chunk }) => {
+  const rows = [];
+  for (let index = 0; index < anchors.length; index += 1) {
+    const start = anchors[index].index;
+    const end = index + 1 < anchors.length ? anchors[index + 1].index : text.length;
+    const dateRaw = anchors[index].value;
+    const chunk = text.slice(start, end);
     const amounts = chunk.match(amountPattern);
-    if (!amounts || amounts.length === 0) return;
-    const amountRaw = amounts[amounts.length - 1]; // pega o último valor monetário do trecho
+    if (!amounts?.length) continue;
+
+    const amountRaw = amounts[amounts.length - 1];
     const amount = normalizeAmount(amountRaw);
-    const date = normalizeDate(dateRaw.trim(), referenceYear);
-    if (!amount || amount <= 0 || !date) return;
+    const date = normalizeDate(dateRaw, referenceYear);
+    if (!amount || !date) continue;
 
     const description = chunk
       .replace(dateRaw, "")
       .replace(amountRaw, "")
       .replace(/\s+/g, " ")
       .trim()
-      .slice(0, 80) || "Lançamento importado";
+      .slice(0, 140) || "Lançamento importado";
 
-    const type = INCOME_KEYWORDS.some((k) => description.toLowerCase().includes(k)) ? "receita" : "despesa";
-    const category = type === "receita"
-      ? "Outras receitas"
+    const lower = description.toLowerCase();
+    const type = INCOME_KEYWORDS.some((keyword) => lower.includes(keyword)) ? "receita" : "despesa";
+    const categoryGuess = type === "receita"
+      ? { label: INCOME_CATEGORIES.includes("Outras receitas") ? "Outras receitas" : INCOME_CATEGORIES[0], matched: false }
       : guessFromKeywords(description, CATEGORY_KEYWORDS, "Gastos gerais");
-    const paymentMethod = guessFromKeywords(description, PAYMENT_KEYWORDS, "Pix");
+    const paymentGuess = guessFromKeywords(description, PAYMENT_KEYWORDS, "Pix");
 
-    results.push({
+    const matchedSignals = Number(categoryGuess.matched) + Number(paymentGuess.matched) + Number(description.length > 5);
+    const confidence = matchedSignals >= 3 ? "alta" : matchedSignals === 2 ? "media" : "baixa";
+
+    rows.push({
       id: uid(),
       type,
       amount,
       description,
-      category: type === "receita" ? category : (CATEGORIES.includes(category) ? category : "Gastos gerais"),
-      paymentMethod: PAYMENT_METHODS.includes(paymentMethod) ? paymentMethod : "Pix",
+      category: type === "receita"
+        ? categoryGuess.label
+        : (CATEGORIES.includes(categoryGuess.label) ? categoryGuess.label : "Gastos gerais"),
+      paymentMethod: PAYMENT_METHODS.includes(paymentGuess.label) ? paymentGuess.label : "Pix",
       date,
       isRecurring: false,
       notes: "",
+      source: "pdf",
+      sourceFile,
+      confidence,
       __imported: true,
-      __method: "free",
+      __method: "local-pdfjs",
     });
-  });
+  }
 
-  // remove duplicados óbvios (mesma data + valor + descrição)
   const seen = new Set();
-  return results.filter((t) => {
-    const key = `${t.date}|${t.amount}|${t.description}`;
+  return rows.filter((item) => {
+    const key = transactionFingerprint(item);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+}
+
+/** Leitura 100% local: nenhum PDF é enviado para serviços externos. */
+export async function extractTransactionsFromPDFFree(file) {
+  if (!file || (file.type !== "application/pdf" && !file.name?.toLowerCase().endsWith(".pdf"))) throw new Error("Selecione um arquivo PDF válido.");
+  // Limite por arquivo protege memória; não existe limite de quantidade de PDFs na fila.
+  if (file.size > 25 * 1024 * 1024) throw new Error(`${file.name}: o PDF ultrapassa 25 MB.`);
+  const text = await extractRawText(file);
+  return parseFinancialText(text, { sourceFile: file.name });
 }
