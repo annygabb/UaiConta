@@ -1,0 +1,69 @@
+name: UaiConta V4 CI
+
+on:
+  push:
+    branches: [main, feat/uaiconta-v4]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies and generate lockfile
+        run: npm install --no-audit --no-fund
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Security baseline
+        run: npm run test:security
+      - name: Build
+        env:
+          VITE_ENABLE_DEMO_MODE: 'true'
+        run: npm run build
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+      - name: Upload generated lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-lock
+          path: package-lock.json
+          retention-days: 7
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: quality
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Core E2E
+        run: npm run test:e2e -- --project=desktop-chromium
+      - name: Mobile E2E
+        run: npm run test:e2e -- --project=mobile-chromium tests/e2e/uaiconta.spec.js
+      - name: Responsive matrix
+        run: npm run test:responsive -- --project=desktop-chromium
+      - name: Accessibility
+        run: npm run test:a11y -- --project=desktop-chromium
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7

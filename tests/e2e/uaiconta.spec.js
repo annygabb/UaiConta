@@ -1,40 +1,54 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from '@playwright/test'
 
-test.beforeEach(async ({ page }) => {
-  await page.goto("/dashboard");
-  await page.evaluate(() => localStorage.clear());
-  await page.reload();
-  const skip = page.getByRole("button", { name: "Prefiro cadastrar depois" });
-  if (await skip.isVisible().catch(() => false)) await skip.click();
-});
+async function resetDemo(page) {
+  await page.goto('/dashboard')
+  await page.evaluate(() => localStorage.clear())
+  await page.reload()
+  const skip = page.getByRole('button', { name: 'Prefiro cadastrar depois' })
+  if (await skip.isVisible().catch(() => false)) await skip.click()
+}
 
-test("navegação principal abre Movimentações, Análises e Mais", async ({ page }) => {
-  await page.getByRole("button", { name: /Movimentações|Mov\./ }).first().click();
-  await expect(page).toHaveURL(/\/movimentacoes$/);
-  await expect(page.getByRole("heading", { name: "Movimentações" })).toBeVisible();
+test.beforeEach(async ({ page }) => resetDemo(page))
 
-  await page.getByRole("button", { name: "Análises" }).first().click();
-  await expect(page).toHaveURL(/\/analises$/);
-  await expect(page.getByRole("heading", { name: "Análises" })).toBeVisible();
+test('navegação principal abre Movimentações, Análises e Mais', async ({ page }) => {
+  await page.getByRole('link', { name: /Movimentações|Mov\./ }).first().click()
+  await expect(page).toHaveURL(/\/movimentacoes$/)
+  await expect(page.getByRole('heading', { name: 'Movimentações' })).toBeVisible()
 
-  await page.getByRole("button", { name: "Mais" }).first().click();
-  await expect(page).toHaveURL(/\/mais$/);
-  await expect(page.getByRole("heading", { name: "Mais" })).toBeVisible();
-});
+  await page.getByRole('link', { name: 'Análises' }).first().click()
+  await expect(page).toHaveURL(/\/analises$/)
+  await expect(page.getByRole('heading', { name: 'Análises' })).toBeVisible()
 
-test("cria uma receita e atualiza o card", async ({ page }) => {
-  await page.getByRole("button", { name: /Adicionar movimentação/ }).first().click();
-  await page.getByRole("button", { name: "Receita", exact: true }).click();
-  const value = page.getByLabel("Valor");
-  await value.fill("500000");
-  await page.getByPlaceholder("Ex: Salário NTT DATA").fill("Salário teste");
-  await page.getByRole("button", { name: /Adicionar movimentação/ }).last().click();
-  await expect(page.getByRole("button", { name: /Abrir detalhes de Receita do mês/ })).toContainText("R$ 5.000,00");
-});
+  await page.getByRole('link', { name: 'Mais' }).first().click()
+  await expect(page).toHaveURL(/\/mais$/)
+  await expect(page.getByRole('heading', { name: 'Mais' })).toBeVisible()
+})
 
-test("layout mobile exibe bottom navigation sem overflow horizontal", async ({ page }) => {
-  await page.setViewportSize({ width: 360, height: 800 });
-  await expect(page.locator(".mobile-nav")).toBeVisible();
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
-  expect(overflow).toBeFalsy();
-});
+test('cria uma receita e atualiza card e detalhes', async ({ page }) => {
+  await page.getByRole('button', { name: 'Adicionar movimentação' }).first().click()
+  await page.getByRole('button', { name: 'Receita', exact: true }).click()
+  await page.getByLabel('Valor').fill('500000')
+  await page.getByPlaceholder('Ex: Salário NTT DATA').fill('Salário teste')
+  await page.getByRole('button', { name: 'Adicionar movimentação' }).last().click()
+  const card = page.getByRole('button', { name: /Abrir detalhes de Receita do mês/ })
+  await expect(card).toContainText('R$ 5.000,00')
+  await card.click()
+  await expect(page).toHaveURL(/\/receitas$/)
+  await expect(page.getByText('Salário teste')).toBeVisible()
+})
+
+test('adiciona uma despesa e mantém os gráficos no mesmo período', async ({ page }) => {
+  await page.getByRole('button', { name: 'Adicionar movimentação' }).first().click()
+  await page.getByLabel('Valor').fill('12590')
+  await page.getByPlaceholder('Ex: Supermercado da semana').fill('Supermercado teste')
+  await page.getByRole('button', { name: 'Adicionar movimentação' }).last().click()
+  await expect(page.getByRole('button', { name: /Abrir detalhes de Gastos/ })).toContainText('R$ 125,90')
+  await expect(page.getByText('Gastos por categoria')).toBeVisible()
+  await expect(page.getByText('Pix x cartão')).toBeVisible()
+})
+
+test('rota direta funciona após refresh', async ({ page }) => {
+  await page.goto('/analises')
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Análises' })).toBeVisible()
+})

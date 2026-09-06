@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { AlertTriangle, Check, FileText, Loader2, Plus, RefreshCcw, Trash2, UploadCloud, X } from "lucide-react";
+import { IconAlertTriangle, IconCheck, IconFileText, IconLoader2, IconPlus, IconRefresh, IconTrash, IconCloudUpload, IconX } from '@tabler/icons-react';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from "../constants.js";
 import { extractTransactionsFromPDFFree, markPossibleDuplicates } from "../pdfParserFree.js";
 import { dateLabel, money } from "../utils.js";
@@ -112,7 +112,7 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
             <h2 id="pdf-title">Adicionar por PDF</h2>
             <p>Leitura feita no seu navegador com pdf.js. Nenhum documento é enviado para IA.</p>
           </div>
-          <button className="icon-btn" onClick={onClose} aria-label="Fechar"><X size={19} /></button>
+          <button className="icon-btn" onClick={onClose} aria-label="Fechar"><IconX size={20} /></button>
         </header>
 
         <button
@@ -122,26 +122,26 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => { event.preventDefault(); addFiles(event.dataTransfer.files); }}
         >
-          <UploadCloud size={25} />
+          <IconCloudUpload size={26} />
           <strong>Arraste seus PDFs aqui</strong>
           <span>ou clique para selecionar quantos arquivos quiser</span>
           <small>Os arquivos são processados em fila para manter o sistema rápido.</small>
         </button>
         <input ref={inputRef} type="file" accept="application/pdf,.pdf" multiple hidden onChange={(event) => { addFiles(event.target.files); event.target.value = ""; }} />
-        {message && <div className="inline-alert"><AlertTriangle size={16} /> {message}</div>}
+        {message && <div className="inline-alert"><IconAlertTriangle size={17} /> {message}</div>}
 
         {files.length > 0 && (
           <section className="pdf-file-list" aria-label="Arquivos adicionados">
-            <div className="section-line"><strong>{files.length} PDF{files.length > 1 ? "s" : ""} adicionado{files.length > 1 ? "s" : ""}</strong><button onClick={() => inputRef.current?.click()}><Plus size={15} /> Adicionar mais</button></div>
+            <div className="section-line"><strong>{files.length} PDF{files.length > 1 ? "s" : ""} adicionado{files.length > 1 ? "s" : ""}</strong><button onClick={() => inputRef.current?.click()}><IconPlus size={16} /> Adicionar mais</button></div>
             {files.map((item) => (
               <div className="pdf-file" key={item.id}>
-                <span className="pdf-file-icon"><FileText size={18} /></span>
+                <span className="pdf-file-icon"><IconFileText size={19} /></span>
                 <div className="pdf-file-copy"><strong>{item.name}</strong><small>{item.status === "processado" ? `${item.count} movimentações encontradas` : item.status === "erro" ? item.error : item.status === "processando" ? "Lendo documento..." : "Na fila"}</small></div>
                 <div className="pdf-file-actions">
-                  {item.status === "processando" && <Loader2 size={17} className="spin" />}
-                  {item.status === "processado" && <Check size={17} />}
-                  {item.status === "erro" && <button aria-label="Tentar novamente" onClick={() => retryFile(item.id)}><RefreshCcw size={16} /></button>}
-                  <button aria-label="Remover PDF" onClick={() => removeFile(item.id)}><Trash2 size={16} /></button>
+                  {item.status === "processando" && <IconLoader2 size={18} className="spin" />}
+                  {item.status === "processado" && <IconCheck size={18} />}
+                  {item.status === "erro" && <button aria-label="Tentar novamente" onClick={() => retryFile(item.id)}><IconRefresh size={17} /></button>}
+                  <button aria-label="Remover PDF" onClick={() => removeFile(item.id)}><IconTrash size={17} /></button>
                 </div>
               </div>
             ))}
@@ -180,7 +180,7 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
                       </div>
                     </div>
                     <strong className={row.type === "receita" ? "review-value positive" : "review-value"}>{row.type === "receita" ? "+" : "-"}{money(row.amount)}</strong>
-                    <button className="review-delete" aria-label="Remover movimentação" onClick={() => setRows((current) => current.filter((item) => item.id !== row.id))}><Trash2 size={15} /></button>
+                    <button className="review-delete" aria-label="Remover movimentação" onClick={() => setRows((current) => current.filter((item) => item.id !== row.id))}><IconTrash size={16} /></button>
                   </article>
                 );
               })}
@@ -191,7 +191,7 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
         <footer className="sheet-footer">
           <button className="ghost-btn" onClick={onClose}>Cancelar</button>
           <button className="primary-btn" disabled={!selectedRows.length || processing || importing} onClick={importSelected}>
-            {importing ? <Loader2 size={17} className="spin" /> : <Check size={17} />}
+            {importing ? <IconLoader2 size={18} className="spin" /> : <IconCheck size={18} />}
             {importing ? "Importando..." : `Importar ${selectedRows.length || ""} movimentações`}
           </button>
         </footer>

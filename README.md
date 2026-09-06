@@ -1,607 +1,221 @@
 # UaiConta — Personal Finance OS
 
-> Um painel financeiro pessoal criado para transformar movimentações em decisões: quanto entrou, quanto saiu, onde o dinheiro foi, quanto ainda pode ser gasto e qual tende a ser a sobra do mês.
+> Controle financeiro pessoal open source para entender **quanto entrou, quanto saiu, onde o dinheiro foi, o que ainda está previsto e quanto tende a sobrar** — no computador, tablet e celular.
 
 ## Por que o UaiConta existe
 
-Controlar finanças pessoais costuma virar uma mistura de extratos, faturas, anotações, planilhas e cálculos manuais. O UaiConta foi criado para concentrar esse processo em um único lugar e facilitar três perguntas essenciais:
+Finanças pessoais costumam ficar espalhadas entre faturas, Pix, extratos, recibos, notas fiscais, planilhas e contas feitas à mão. O UaiConta reúne essas informações em uma única experiência e transforma movimentações em contexto para tomada de decisão.
 
-1. **Quanto eu realmente tenho disponível?**
-2. **Onde meu dinheiro está indo?**
-3. **O que posso ajustar para terminar o mês melhor?**
+A proposta não é ser só um dashboard: o projeto separa **realizado x previsto**, trata receitas, despesas, investimentos e transferências como domínios diferentes, permite recorrências e mantém documentos financeiros associados aos dados.
 
-A proposta não é ser apenas um dashboard bonito. O projeto foi estruturado como um **MVP funcional de gestão financeira pessoal**, com cadastro de receitas e despesas, investimentos, importação de PDFs, análises, projeções, navegação mobile e uma base preparada para persistência real no Supabase.
+## O que você ganha
 
----
+- visão rápida de receitas, gastos, investimentos e sobra;
+- projeção do período sem confundir previsão com valor realizado;
+- gráfico de categorias com porcentagens reais;
+- comparação Pix x cartão por período;
+- múltiplas fontes de renda;
+- recorrências que aparecem nos meses futuros como `planned`;
+- fundação tipada para parcelamento com divisão exata de centavos;
+- importação de vários PDFs localmente com `pdf.js`, sem Anthropic/Claude;
+- revisão dos lançamentos importados, confiança e aviso de duplicidade;
+- notas, cupons e comprovantes em PDF/imagem/câmera;
+- OCR open source com Tesseract.js sem impedir o salvamento do original se falhar;
+- documentos privados no Supabase Storage;
+- interface responsiva e PWA;
+- base modular, tipada, testável e preparada para self-host.
 
-## O que você ganha usando o UaiConta
+## Domínio financeiro
 
-### Visão financeira rápida
+O UaiConta usa valores em **centavos inteiros (`bigint` no PostgreSQL)**.
 
-Em poucos segundos é possível enxergar:
+```txt
+Sobra realizada = receitas realizadas - despesas realizadas - investimentos realizados
 
-- receita do período;
-- gastos totais;
-- investimentos;
-- economia/sobra;
-- percentual da renda comprometido;
-- projeção de gastos até o fim do mês;
-- formas de pagamento mais utilizadas;
-- categorias que mais consomem dinheiro.
+Projeção = realizado + valores previstos/recorrentes + projeção variável
+```
 
-### Menos cálculo manual
+Transferências entre contas não contam como receita nem despesa global. Uma ocorrência recorrente futura permanece `planned` até confirmação do usuário.
 
-Ao cadastrar quanto você ganha e adicionar seus gastos, o sistema recalcula automaticamente os indicadores financeiros. A ideia é reduzir a necessidade de fazer contas em planilhas ou calculadora toda vez que uma nova movimentação acontece.
+## Funcionalidades
 
-### Melhor entendimento dos gastos
+### Dashboard e análises
 
-O dashboard e a área de análises ajudam a identificar:
+- cards clicáveis de Receita, Gastos, Investimentos e Economia;
+- seletor central de mês/ano/período;
+- radial financeiro espacial com os mesmos dados da fonte central de métricas;
+- fluxo/waterfall `Receita → Gastos → Investimentos → Sobra`;
+- donut de gastos por categoria;
+- estado especial para gastos não categorizados;
+- barras Pix x cartão;
+- tendências e insights derivados dos dados reais.
 
-- categorias com maior peso no orçamento;
-- mudanças de comportamento ao longo do tempo;
-- concentração de despesas no cartão ou Pix;
-- possíveis excessos;
-- espaço para economia e investimento.
+### Movimentações
 
-### Entrada de dados mais prática
+Tipos:
 
-As movimentações podem ser cadastradas manualmente ou importadas a partir de **múltiplos PDFs**. O processamento é feito localmente no navegador com `pdf.js`, sem depender de uma API de IA para ler os documentos.
-
-### Funciona no computador e no celular
-
-A interface foi desenhada para desktop e mobile, com navegação inferior no celular, cards reorganizados, formulários adaptados e gráficos responsivos.
-
----
-
-# Funcionalidades
-
-## Dashboard
-
-O painel principal reúne os indicadores mais importantes do período selecionado:
-
-- **Receita do mês**;
-- **Gastos**;
-- **Investimentos**;
-- **Economia**;
-- gráfico de gastos por categoria;
-- comparação entre receita, gastos, investimentos e sobra;
-- gráfico Pix x cartão;
-- últimas movimentações;
-- indicadores e projeções.
-
-Os cards principais são clicáveis e levam para visões detalhadas.
-
-## Período dinâmico
-
-O mês e o ano não ficam hardcoded. O período selecionado controla os indicadores, gráficos e listas exibidos no sistema.
-
-Isso permite navegar entre diferentes meses e entender como o comportamento financeiro mudou ao longo do tempo.
-
-## Receitas
-
-O onboarding pergunta quanto a pessoa recebe e permite cadastrar múltiplas fontes de renda, como:
-
-- salário;
-- freelance;
-- comissão;
-- vendas;
-- reembolsos;
-- rendimentos;
-- outras receitas.
-
-Esses valores entram nos cálculos reais do sistema.
-
-## Movimentações
-
-O usuário pode cadastrar:
-
-- despesa;
 - receita;
+- despesa;
 - investimento;
 - transferência.
 
-Cada registro pode conter informações como valor, descrição, categoria, data, forma de pagamento e observações.
+Suporta categoria, forma de pagamento, status, recorrência, observação e origem do dado. A ligação completa de contas/cartões/subcategorias/parcelas ao formulário está listada nas pendências da beta.
 
-A página de movimentações permite consultar os registros e aplicar filtros.
+### Contas, cartões e categorias
 
-## Categorias
+Há CRUD inicial para contas, cartões e categorias. Subcategorias e regras avançadas de arquivamento continuam na estabilização da beta.
 
-O sistema trabalha com categorias como:
+### Recorrências
 
-- transporte;
-- faculdade;
-- psicóloga;
-- personal;
-- supermercado;
-- alimentação;
-- saúde;
-- diversão;
-- lazer;
-- gastos gerais;
-- investimentos.
+Estratégia híbrida: a regra é persistida e as ocorrências futuras são projetadas virtualmente. Uma ocorrência pode ser confirmada ou pulada sem transformar automaticamente todo o futuro em realizado.
 
-A estrutura foi preparada para expansão e personalização.
+### Parcelas
 
-## Gastos por categoria
+O domínio já possui divisão exata em centavos e a migration cria a fundação de planos/parcelas. A criação e edição completa de compras parceladas pela interface ainda está em `PENDENCIAS.md` e não é apresentada como concluída.
 
-Os gastos são apresentados em gráfico de pizza/donut, mostrando a participação percentual de cada categoria dentro das despesas do período.
+### PDFs de extratos/faturas
 
-Isso facilita identificar rapidamente onde está a maior concentração do orçamento.
+- múltiplos PDFs;
+- fila sequencial;
+- drag and drop;
+- processamento local com `pdf.js`;
+- filtro de texto informativo/rodapé;
+- `rawDescription` separado de descrição de exibição;
+- categorização apenas como sugestão;
+- confiança alta/média/baixa;
+- detecção de possível duplicidade;
+- revisão antes de persistir.
 
-## Pix x cartão
+### Notas e comprovantes
 
-A comparação entre Pix e cartão usa gráfico de barras por período, permitindo enxergar quanto foi gasto em cada forma de pagamento e como essa distribuição muda ao longo do tempo.
+Formatos: PDF, JPG, PNG e WEBP. No mobile também é possível usar a câmera. O original é preservado mesmo se o OCR falhar.
 
-## Análises
+A beta permite listar e baixar o original armazenado no bucket privado `financial-documents`. O viewer avançado com zoom/pan/fullscreen ainda está em estabilização e está documentado em `PENDENCIAS.md`.
 
-A área de análises transforma os dados cadastrados em informações mais úteis, como tendências, comparações e estimativas.
+## Segurança
 
-Exemplos de perguntas que o módulo foi pensado para responder:
+A versão de produção exige Supabase; não existe fallback local silencioso. O modo local só é ativado explicitamente com `--mode demo` ou `VITE_ENABLE_DEMO_MODE=true`.
 
-- meus gastos aumentaram ou diminuíram?;
-- qual categoria cresceu mais?;
-- quanto da minha renda já está comprometido?;
-- quanto devo gastar até o fim do mês mantendo o ritmo atual?;
-- qual tende a ser minha sobra?;
-- estou investindo uma parcela relevante da minha renda?;
+A base inclui:
 
-## Cálculos automáticos
+- Supabase Auth via `@supabase/supabase-js`;
+- RLS em todas as tabelas expostas;
+- policies separadas por operação;
+- `UPDATE` com `USING` + `WITH CHECK`;
+- ownership por `(select auth.uid()) = user_id`;
+- nenhuma `service_role` no frontend;
+- bucket privado e Storage Policies por pasta do usuário;
+- Edge Function `delete-account` em TypeScript para exclusão privilegiada da própria conta;
+- CSP e headers de segurança;
+- validação de tipos/tamanhos de upload;
+- testes estáticos de baseline de RLS e vazamento de secrets.
 
-O domínio financeiro possui funções separadas para calcular, entre outros:
+Leia também [`SECURITY.md`](./SECURITY.md) e [`SECURITY_QA.md`](./SECURITY_QA.md).
 
-- receita do período;
-- despesas;
-- investimentos;
-- saldo/sobra;
-- comprometimento de renda;
-- taxa de economia;
-- projeção mensal;
-- agrupamentos por categoria;
-- agrupamentos por forma de pagamento.
-
-## Importação de vários PDFs
-
-O UaiConta permite selecionar múltiplos PDFs e adicionar novos arquivos em outras rodadas.
-
-O fluxo inclui:
-
-1. seleção dos documentos;
-2. processamento em fila;
-3. extração local com `pdf.js`;
-4. identificação heurística das movimentações;
-5. classificação de confiança;
-6. revisão antes de salvar;
-7. sinalização de possíveis duplicidades.
-
-### Privacidade na leitura dos PDFs
-
-A leitura atual é feita **no próprio navegador**.
-
-O projeto não depende de Anthropic, Claude ou outra API de IA para essa funcionalidade.
-
-Isso significa que, no fluxo padrão de importação, o documento não precisa ser enviado para um modelo externo apenas para que os lançamentos sejam extraídos.
-
-> O parser é heurístico. PDFs digitalizados como imagem ou com layouts muito diferentes podem exigir correção manual na etapa de revisão.
-
----
-
-# Como o sistema calcula sua situação financeira
-
-O objetivo é diferenciar o que já aconteceu do que ainda é uma estimativa.
-
-## Sobra realizada
-
-Representa a diferença entre o que efetivamente entrou e o que efetivamente saiu no período.
-
-```txt
-Sobra realizada = receitas recebidas - despesas realizadas
-```
-
-## Sobra estimada
-
-É uma projeção baseada nos dados disponíveis e no ritmo de gastos.
-
-```txt
-Sobra estimada = receitas previstas - despesas/projeções previstas
-```
-
-Ela deve ser interpretada como **estimativa**, não como valor garantido.
-
-## Percentual da renda comprometido
-
-Ajuda a entender quanto da renda já foi consumido pelos gastos do período.
-
-## Taxa de economia
-
-Indica qual parcela da receita ficou disponível depois das despesas consideradas no cálculo.
-
----
-
-# Experiência e design
-
-A identidade visual segue uma direção dark, tecnológica e moderna, com roxo/lavanda como destaque.
-
-O projeto busca equilibrar:
-
-- densidade de informação;
-- leitura rápida;
-- gráficos claros;
-- microinterações;
-- efeitos de profundidade;
-- experiência mobile-first;
-- performance.
-
-Há efeitos espaciais/3D leves e redução automática de movimento para usuários que utilizam `prefers-reduced-motion`.
-
----
-
-# Stack
-
-## Frontend
-
-- React 18
-- Vite 5
-- Tailwind CSS
-- Recharts
-- Lucide React
-- pdf.js / `pdfjs-dist`
-
-## Dados e autenticação
-
-- Supabase
-- PostgreSQL
-- Supabase Auth
-- Row Level Security (RLS)
-
-## Testes
-
-- Node Test Runner para testes unitários
-- Playwright para E2E
-
-## Deploy
-
-- Vercel
-- PWA com manifest e service worker
-
----
-
-# Arquitetura
-
-A aplicação foi separada por responsabilidades para evitar concentrar toda a lógica em uma única tela.
+## Arquitetura
 
 ```txt
 src/
-├── components/
-│   ├── AuthScreen.jsx
-│   ├── Common.jsx
-│   ├── IncomeOnboarding.jsx
-│   ├── Navigation.jsx
-│   ├── PdfImportModal.jsx
-│   └── TransactionForm.jsx
-│
+├── components/             # navegação, formulários e primitives de UI
+├── domain/money/           # centavos e parcelamento exato
+├── features/
+│   ├── auth/
+│   ├── data/
+│   ├── receipts/
+│   ├── recurrences/
+│   ├── settings/
+│   └── transactions/
+├── infrastructure/supabase/
 ├── pages/
-│   ├── AnalyticsPage.jsx
-│   ├── DashboardPage.jsx
-│   ├── DetailPage.jsx
-│   ├── MorePage.jsx
-│   └── TransactionsPage.jsx
-│
-├── App.jsx
-├── constants.js
-├── dataService.js
-├── finance.js
-├── pdfParserFree.js
-├── router.js
-├── theme.js
-├── utils.js
-└── index.css
+│   └── settings/
+├── styles/
+└── types/
 
 supabase/
-└── schema.sql
+├── schema.sql
+├── migrations/
+└── functions/delete-account/
 
 tests/
 ├── unit/
-│   ├── finance.test.js
-│   └── utils.test.js
+├── security/
 └── e2e/
-    └── uaiconta.spec.js
-
-public/
-├── manifest.webmanifest
-├── service-worker.js
-├── icon-192.png
-└── icon-512.png
 ```
 
-## Responsabilidades principais
+## Stack
 
-### `finance.js`
+- React 18 + TypeScript strict;
+- Vite;
+- React Router;
+- Radix Select;
+- Tabler Icons;
+- Recharts;
+- Supabase Auth + PostgreSQL + Storage;
+- pdf.js;
+- Tesseract.js;
+- Vitest;
+- Playwright + axe.
 
-Concentra regras e cálculos financeiros em funções separadas e testáveis.
-
-### `dataService.js`
-
-Isola a camada de persistência e permite trabalhar com Supabase quando configurado, mantendo um modo local útil para desenvolvimento.
-
-### `pdfParserFree.js`
-
-Responsável pela extração e normalização das movimentações identificadas em PDFs.
-
-### `pages/`
-
-Separa as principais áreas do produto em telas independentes.
-
-### `components/`
-
-Reúne formulários, navegação, autenticação, importação e componentes reutilizáveis.
-
----
-
-# Banco de dados e segurança
-
-O projeto inclui `supabase/schema.sql` com a estrutura necessária para persistência em PostgreSQL.
-
-## Row Level Security
-
-As políticas RLS são baseadas no usuário autenticado e seguem o princípio:
-
-```sql
-auth.uid() = user_id
-```
-
-O objetivo é impedir que um usuário leia ou altere registros financeiros pertencentes a outro usuário.
-
-## Boas práticas adotadas
-
-- UUIDs;
-- RLS;
-- autenticação pelo Supabase;
-- nenhuma `service_role` exposta no frontend;
-- variáveis públicas limitadas ao que o cliente Supabase precisa;
-- headers de segurança no deploy da Vercel;
-- CSP;
-- `X-Content-Type-Options`;
-- `X-Frame-Options`;
-- `Referrer-Policy`;
-- `Permissions-Policy`;
-- revisão de segurança documentada em `SECURITY_QA.md`.
-
----
-
-# Como rodar localmente
-
-## 1. Clone o repositório
+## Testar a branch V4 em modo Demo
 
 ```bash
 git clone https://github.com/annygabb/UaiConta.git
 cd UaiConta
-```
-
-## 2. Instale as dependências
-
-```bash
+git checkout feat/uaiconta-v4
 npm install
+npm run dev -- --mode demo
 ```
 
-## 3. Execute o projeto
+O modo Demo é explícito e usa persistência local apenas para desenvolvimento/demonstração.
 
-```bash
-npm run dev
-```
+## Rodar com Supabase
 
-Abra o endereço exibido pelo Vite no navegador.
-
----
-
-# Rodar sem Supabase
-
-Sem variáveis de ambiente, o projeto possui um modo local para desenvolvimento e demonstração.
-
-Isso facilita trabalhar na interface sem precisar configurar o backend imediatamente.
-
-Para uso persistente e multiusuário, configure o Supabase.
-
----
-
-# Configurar Supabase
-
-## 1. Crie um projeto
-
-Crie um novo projeto no Supabase.
-
-## 2. Execute o schema
-
-Abra o **SQL Editor** e execute:
-
-```txt
-supabase/schema.sql
-```
-
-## 3. Configure as variáveis
-
-Copie:
-
-```bash
-cp .env.example .env.local
-```
-
-Preencha:
+1. Crie um projeto Supabase.
+2. Execute `supabase/schema.sql` para a base inicial.
+3. Depois aplique `supabase/migrations/20260906150000_v4_foundation.sql`.
+4. Faça deploy da função de exclusão com `supabase functions deploy delete-account`.
+5. Copie `.env.example` para `.env.local`.
+6. Configure:
 
 ```env
 VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
-VITE_SUPABASE_ANON_KEY=SUA_CHAVE_ANON
+VITE_SUPABASE_PUBLISHABLE_KEY=SUA_CHAVE_PUBLICA
+VITE_ENABLE_DEMO_MODE=false
 ```
 
-> Nunca coloque a `service_role` no frontend.
-
-## 4. Reinicie o projeto
+7. Rode:
 
 ```bash
+npm install
 npm run dev
 ```
 
-Com as variáveis presentes, a aplicação ativa o fluxo de autenticação e utiliza o Supabase para persistência.
+> Nunca coloque `service_role` no frontend. A chave privilegiada fica somente no runtime server-side da Edge Function.
 
----
-
-# Testes
-
-## Unitários
+## Testes e qualidade
 
 ```bash
-npm test
-```
-
-Os testes cobrem regras financeiras e utilitários importantes para evitar regressões nos cálculos.
-
-## E2E
-
-Instale o navegador do Playwright uma vez:
-
-```bash
-npx playwright install chromium
-```
-
-Depois execute:
-
-```bash
+npm run lint
+npm run typecheck
+npm run test:unit
+npm run test:security
+npm run build:demo
 npm run test:e2e
+npm run audit
 ```
 
-Também existe modo visual:
+O Playwright possui cenários para desktop/mobile/tablet, overflow horizontal em viewports críticos e acessibilidade com axe. O resultado efetivo deve ser conferido no GitHub Actions desta branch.
 
-```bash
-npm run test:e2e:ui
-```
+## PWA e responsividade
 
-Os cenários E2E foram preparados para validar fluxos como navegação, criação de dados e experiência mobile.
+O projeto possui manifest, service worker, ícones e suporte standalone. A interface considera safe areas, bottom navigation mobile, tabelas convertidas em cards e `prefers-reduced-motion`.
 
----
+A matriz completa de validação e pendências fica em [`PENDENCIAS.md`](./PENDENCIAS.md).
 
-# Build de produção
+## Open source e contribuição
 
-```bash
-npm run build
-```
+Licença MIT. Veja [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
-Para visualizar o build localmente:
+## Estado do projeto
 
-```bash
-npm run preview
-```
-
----
-
-# Deploy na Vercel
-
-O repositório já possui `vercel.json` preparado para SPA e headers de segurança.
-
-## Sem Supabase
-
-O frontend pode ser publicado diretamente.
-
-## Com Supabase
-
-Configure na Vercel:
-
-```env
-VITE_SUPABASE_URL
-VITE_SUPABASE_ANON_KEY
-```
-
-Depois faça um novo deploy.
-
----
-
-# PWA e uso no celular
-
-O projeto inclui:
-
-- `manifest.webmanifest`;
-- ícones 192x192 e 512x512;
-- service worker;
-- modo standalone quando instalado;
-- layout responsivo.
-
-Em navegadores compatíveis, o UaiConta pode ser adicionado à tela inicial e utilizado com aparência de aplicativo.
-
----
-
-# Responsividade
-
-A interface foi pensada para diferentes tamanhos de tela, incluindo smartphones pequenos, tablets e desktop.
-
-No mobile:
-
-- a navegação principal fica na parte inferior;
-- tabelas são adaptadas para leitura em tela pequena;
-- gráficos são reorganizados;
-- formulários ocupam melhor o espaço disponível;
-- os elementos de interação recebem áreas maiores para toque.
-
----
-
-# Qualidade e revisão
-
-O repositório inclui dois documentos úteis para acompanhar o estado técnico:
-
-- `IMPLEMENTATION_REPORT.md` — resumo da implementação;
-- `SECURITY_QA.md` — checklist de segurança, qualidade, responsividade e testes.
-
-Eles servem como base para continuar evoluindo o MVP sem perder as decisões arquiteturais já tomadas.
-
----
-
-# Limitações atuais do MVP
-
-O UaiConta já possui uma base funcional, mas ainda é um projeto em evolução.
-
-Alguns pontos planejados para versões futuras incluem:
-
-- categorias e subcategorias totalmente personalizáveis;
-- contas e cartões mais completos;
-- orçamento mensal por categoria;
-- metas financeiras;
-- recorrências avançadas;
-- parcelamento completo;
-- itens individuais de supermercado;
-- histórico de preço por produto;
-- mais parsers específicos para diferentes bancos;
-- migração integral para TypeScript;
-- cobertura E2E maior;
-- análises financeiras mais avançadas;
-- backup/exportação estruturada.
-
----
-
-# Escalabilidade
-
-A base foi organizada para que novas funcionalidades não precisem ser colocadas dentro de um único componente gigante.
-
-As regras financeiras ficam separadas da camada visual, a persistência está isolada, o parser de PDFs possui responsabilidade própria e as principais telas vivem em páginas diferentes.
-
-Isso permite evoluir o produto gradualmente para uma arquitetura mais ampla sem precisar recomeçar o projeto do zero.
-
----
-
-# Objetivo do projeto
-
-O UaiConta busca fazer o usuário sair de:
-
-> “Eu sei que estou gastando, mas não sei exatamente para onde o dinheiro está indo.”
-
-para:
-
-> “Eu sei quanto entrou, quanto saiu, o que está pesando no meu orçamento, quanto provavelmente vai sobrar e onde posso ajustar.”
-
-A prioridade do produto é combinar **clareza financeira, facilidade de uso e informação acionável**.
-
----
-
-## Projeto
-
-Desenvolvido e mantido por **Anny Gabrielly**.
-
-- GitHub: [@annygabb](https://github.com/annygabb)
-- LinkedIn: [Anny Gabrielly](https://www.linkedin.com/in/annygabrielly/)
-- Portfólio: [portfoliosolucoesanny.vercel.app](https://portfoliosolucoesanny.vercel.app/)
+A branch `feat/uaiconta-v4` prioriza o ciclo **MVP funcional → UI/UX → responsividade → testes → performance**. Itens que dependem de infraestrutura real ou ainda estão parciais ficam explicitamente documentados, em vez de serem apresentados como concluídos sem teste.
