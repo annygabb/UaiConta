@@ -45,5 +45,6 @@ export const ROUTES = {
   privacy: '/privacidade',
   data: '/dados',
   security: '/seguranca',
+  legal: '/termos-e-privacidade',
   resetPassword: '/redefinir-senha',
 }
