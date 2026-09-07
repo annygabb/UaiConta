@@ -26,6 +26,7 @@ import TransactionForm from './components/TransactionForm.jsx'
 import PdfImportModal from './components/PdfImportModal.jsx'
 import AuthScreen from './components/AuthScreen.jsx'
 import IncomeOnboarding from './components/IncomeOnboarding.jsx'
+import NamePrompt from './components/NamePrompt.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
 import TransactionsPage from './pages/TransactionsPage.jsx'
 import AnalyticsPage from './pages/AnalyticsPage.jsx'
@@ -44,6 +45,9 @@ import DataPrivacyPage from './pages/settings/DataPrivacyPage.jsx'
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx'
 import { recurrenceRepository } from './features/recurrences/recurrence.repository.ts'
 import { projectRecurrence, recurrenceOccurrenceKey } from './features/recurrences/recurrence.ts'
+import { profileRepository } from './features/profile/profile.repository.ts'
+
+const nameConfirmationKey = (scope) => `uaiconta-name-confirmed-v1:${scope}`
 
 export default function UaiConta() {
   const location = useLocation()
@@ -58,6 +62,8 @@ export default function UaiConta() {
   const [formState, setFormState] = useState(null)
   const [pdfOpen, setPdfOpen] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [profileName, setProfileName] = useState('')
+  const [namePromptOpen, setNamePromptOpen] = useState(false)
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -103,6 +109,40 @@ export default function UaiConta() {
       .catch((err) => active && setError(err?.message || 'Falha ao carregar dados.'))
       .finally(() => active && setLoading(false))
     return () => { active = false }
+  }, [session, authReady])
+
+  useEffect(() => {
+    if (!authReady) return undefined
+    if (isSupabaseConfigured && !session?.user?.id) {
+      setProfileName('')
+      setNamePromptOpen(false)
+      return undefined
+    }
+
+    let active = true
+    const scope = session?.user?.id || 'demo'
+    profileRepository.getDisplayName()
+      .then((name) => {
+        if (!active) return
+        setProfileName(name)
+        const confirmed = sessionStorage.getItem(nameConfirmationKey(scope)) === 'true'
+        setNamePromptOpen(!confirmed)
+      })
+      .catch((err) => {
+        if (!active) return
+        setError(err?.message || 'Não foi possível carregar seu perfil.')
+        setNamePromptOpen(true)
+      })
+
+    const onProfileChanged = (event) => {
+      const nextName = String(event?.detail?.displayName || '').trim()
+      if (nextName) setProfileName(nextName)
+    }
+    window.addEventListener('uaiconta:profile-changed', onProfileChanged)
+    return () => {
+      active = false
+      window.removeEventListener('uaiconta:profile-changed', onProfileChanged)
+    }
   }, [session, authReady])
 
   useEffect(() => {
@@ -224,8 +264,30 @@ export default function UaiConta() {
     setShowOnboarding(false)
   }
 
+  async function confirmName(name) {
+    try {
+      const savedName = await profileRepository.saveDisplayName(name)
+      const scope = session?.user?.id || 'demo'
+      sessionStorage.setItem(nameConfirmationKey(scope), 'true')
+      setProfileName(savedName)
+      setNamePromptOpen(false)
+      window.dispatchEvent(new CustomEvent('uaiconta:profile-changed', { detail: { displayName: savedName } }))
+      notify(`Bem-vinda, ${savedName.split(' ')[0]}.`)
+    } catch (err) {
+      notify(err?.message || 'Não foi possível salvar seu nome.', 'error')
+      throw err
+    }
+  }
+
   async function handleSignOut() {
-    try { await signOut() } finally { setSession(null); setTransactions([]) }
+    const scope = session?.user?.id || 'demo'
+    try { sessionStorage.removeItem(nameConfirmationKey(scope)) } catch {}
+    try { await signOut() } finally {
+      setSession(null)
+      setTransactions([])
+      setProfileName('')
+      setNamePromptOpen(false)
+    }
   }
 
   if (!authReady) return <div className="app-loader"><div className="loader-orb"/><IconLoader2 size={22} className="spin"/><span>Verificando sua sessão...</span></div>
@@ -242,10 +304,10 @@ export default function UaiConta() {
 
   return (
     <div className="app-shell">
-      <Sidebar onAdd={() => setFormState({})} />
+      <Sidebar onAdd={() => setFormState({})} userName={profileName} />
       <div className="app-column">
         <header className="topbar">
-          <div className="topbar-title"><span>Receitas</span><strong>{periodLabel(period)}</strong></div>
+          <div className="topbar-title"><span>{profileName ? `Olá, ${profileName.split(' ')[0]}` : 'Receitas'}</span><strong>{periodLabel(period)}</strong></div>
           <PeriodSelector value={period} onChange={setPeriod} />
           <button className="top-add" onClick={() => setFormState({})}><IconPlus size={17}/> <span>Adicionar</span></button>
         </header>
@@ -253,7 +315,7 @@ export default function UaiConta() {
         <main className="content">
           <Routes>
             <Route path="/" element={<Navigate to={ROUTES.dashboard} replace />} />
-            <Route path={ROUTES.dashboard} element={<DashboardPage metrics={metrics} monthlySeries={monthlySeries} recentTransactions={currentRows} onEdit={setFormState} onAdd={() => setFormState({})} />} />
+            <Route path={ROUTES.dashboard} element={<DashboardPage metrics={metrics} monthlySeries={monthlySeries} recentTransactions={currentRows} onEdit={setFormState} onAdd={() => setFormState({})} userName={profileName} />} />
             <Route path={ROUTES.transactions} element={<TransactionsPage transactions={financialRows} period={period} onEdit={setFormState} onDuplicate={handleDuplicate} onDelete={handleDelete} onResolvePlanned={handleResolvePlanned} onAdd={() => setFormState({})} />} />
             <Route path={ROUTES.analytics} element={<AnalyticsPage metrics={metrics} monthlySeries={monthlySeries} />} />
             <Route path={ROUTES.more} element={<MorePage onImportPdf={() => setPdfOpen(true)} session={session} onSignOut={handleSignOut} />} />
@@ -281,7 +343,8 @@ export default function UaiConta() {
 
       {formState !== null && <TransactionForm initial={formState?.id || formState?.__duplicate ? formState : null} onCancel={() => setFormState(null)} onSave={handleSave} onImportPdf={() => setPdfOpen(true)} />}
       {pdfOpen && <PdfImportModal existingTransactions={transactions} onClose={() => setPdfOpen(false)} onImport={handleImport} />}
-      {showOnboarding && <IncomeOnboarding onFinish={finishOnboarding} onSkip={skipOnboarding} />}
+      {namePromptOpen && <NamePrompt initialName={profileName} onConfirm={confirmName} />}
+      {showOnboarding && !namePromptOpen && <IncomeOnboarding onFinish={finishOnboarding} onSkip={skipOnboarding} />}
       {toast && <div className={`toast ${toast.type === 'error' ? 'toast-error' : ''}`}>{toast.type === 'error' ? <IconAlertCircle size={17}/> : <IconCircleCheck size={17}/>}<span>{toast.message}</span></div>}
     </div>
   )

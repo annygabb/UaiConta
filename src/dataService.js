@@ -36,6 +36,8 @@ function normalizeTx(item) {
     category: item.category || 'Não categorizado',
     subcategory: item.subcategory || '',
     paymentMethod: item.paymentMethod || item.payment_method || 'Pix',
+    accountId: item.accountId || item.account_id || '',
+    creditCardId: item.creditCardId || item.credit_card_id || '',
     date: item.date || item.transaction_date || new Date().toISOString().slice(0, 10),
     status: item.status || 'completed',
     isRecurring: Boolean(item.isRecurring ?? item.is_recurring),

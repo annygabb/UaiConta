@@ -1,11 +1,15 @@
-import React from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { IconPigMoney, IconTrendingDown, IconTrendingUp, IconWallet } from '@tabler/icons-react'
+import { IconCreditCard, IconPigMoney, IconQrcode, IconTrendingDown, IconTrendingUp, IconWallet } from '@tabler/icons-react'
 import { useNavigate } from 'react-router-dom'
 import { CATEGORY_COLORS, C } from '../theme.js'
 import { money } from '../utils.js'
 import { ROUTES } from '../constants.js'
 import { MetricCard, Panel, SpatialOrb } from '../components/Common.jsx'
+import PaymentFolder from '../components/ui/PaymentFolder.jsx'
+import TextScramble from '../components/ui/TextScramble.jsx'
+import { entityRepository } from '../features/settings/entity.repository.ts'
+import { isSupabaseConfigured } from '../infrastructure/supabase/client.ts'
 
 const tooltipStyle = { background: C.surface2, border: `1px solid ${C.divider}`, borderRadius: 14, color: C.text, fontSize: 12, boxShadow: '0 18px 55px rgba(0,0,0,.35)' }
 const chartCursor = { fill: 'rgba(123,51,126,.08)' }
@@ -36,16 +40,53 @@ function FinancialFlow({ metrics }) {
   </div>
 }
 
-export default function DashboardPage({ metrics, monthlySeries, recentTransactions, onEdit, onAdd }) {
+export default function DashboardPage({ metrics, monthlySeries, recentTransactions, onEdit, onAdd, userName = '' }) {
   const navigate = useNavigate()
+  const [cards, setCards] = useState([])
   const totalForPie = metrics.expense || 1
   const onlyUncategorized = metrics.categoryData.length === 1 && metrics.categoryData[0]?.name === 'Não categorizado'
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return undefined
+    let active = true
+    const reload = () => entityRepository.list('credit_cards').then((rows) => { if (active) setCards(rows) }).catch(() => {})
+    reload()
+    const onChanged = (event) => { if (event?.detail?.table === 'credit_cards') reload() }
+    window.addEventListener('uaiconta:data-changed', onChanged)
+    return () => { active = false; window.removeEventListener('uaiconta:data-changed', onChanged) }
+  }, [])
+
+  const paymentSummary = useMemo(() => {
+    const expenses = recentTransactions.filter((row) => row.type === 'despesa' && row.status === 'completed')
+    const sum = (rows) => rows.reduce((total, row) => total + Number(row.amount || 0), 0)
+    const pix = sum(expenses.filter((row) => row.paymentMethod === 'Pix'))
+    const cardRows = expenses.filter((row) => row.paymentMethod === 'Cartão de crédito' || row.paymentMethod === 'Cartão de débito')
+    const byCard = cards.map((card) => {
+      const rows = cardRows.filter((row) => row.creditCardId === card.id)
+      return {
+        card,
+        credit: sum(rows.filter((row) => row.paymentMethod === 'Cartão de crédito')),
+        debit: sum(rows.filter((row) => row.paymentMethod === 'Cartão de débito')),
+      }
+    })
+    const unassigned = cardRows.filter((row) => !row.creditCardId)
+    return {
+      pix,
+      cards: byCard,
+      unassignedCredit: sum(unassigned.filter((row) => row.paymentMethod === 'Cartão de crédito')),
+      unassignedDebit: sum(unassigned.filter((row) => row.paymentMethod === 'Cartão de débito')),
+    }
+  }, [cards, recentTransactions])
+
+  const title = userName
+    ? `${userName.split(' ')[0]}, seu mês sem precisar refazer as contas.`
+    : 'Seu mês, sem precisar refazer as contas.'
 
   return (
     <>
       <section className="hero-grid">
         <div className="hero-copy">
-          <h1>Seu mês, sem precisar refazer as contas.</h1>
+          <h1><TextScramble text={title} /></h1>
           <p>Receitas, gastos, aportes e previsões usam o mesmo período. Valores futuros recorrentes aparecem como previstos até você confirmar que aconteceram.</p>
           <div className="hero-inline-stats">
             <span><strong>{metrics.committedRate.toFixed(0)}%</strong> da renda comprometida</span>
@@ -85,9 +126,51 @@ export default function DashboardPage({ metrics, monthlySeries, recentTransactio
           <FinancialFlow metrics={metrics} />
         </Panel>
 
-        <Panel title="Pix x cartão" subtitle="Quanto foi gasto em cada forma de pagamento" className="span-2">
-          <div className="chart-medium"><ResponsiveContainer><BarChart data={monthlySeries} barGap={5}><CartesianGrid stroke={C.divider} vertical={false}/><XAxis dataKey="label" tick={{fill:C.textSoft,fontSize:12}} axisLine={false} tickLine={false}/><YAxis tick={{fill:C.textSoft,fontSize:11}} axisLine={false} tickLine={false} width={56}/><Tooltip cursor={chartCursor} contentStyle={tooltipStyle} formatter={(v,n)=>[money(v),n==="pix"?"Pix":"Cartão"]}/><Legend wrapperStyle={{fontSize:12}} formatter={(v)=>v==="pix"?"Pix":"Cartão"}/><Bar dataKey="pix" fill={C.lavender} radius={[6,6,0,0]}/><Bar dataKey="cartao" fill={C.purple} radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div>
-          <div className="chart-kpis"><span>Pix <strong>{money(metrics.byPayment.Pix || 0)}</strong></span><span>Cartão <strong>{money((metrics.byPayment['Cartão de crédito'] || 0) + (metrics.byPayment['Cartão de débito'] || 0))}</strong></span></div>
+        <Panel title="Pix e cartões" subtitle="Abra cada pasta para ver quanto foi gasto em cada forma" className="span-2">
+          <div className="payment-folder-grid">
+            <PaymentFolder
+              title="Pix"
+              subtitle="Transferência instantânea"
+              amount={paymentSummary.pix}
+              icon={IconQrcode}
+              accent="#8F5CE0"
+              breakdown={[{ label: 'Gasto realizado no período', value: paymentSummary.pix }]}
+            />
+            {paymentSummary.cards.map(({ card, credit, debit }) => (
+              <PaymentFolder
+                key={card.id}
+                title={card.name}
+                subtitle={card.bank || 'Cartão cadastrado'}
+                amount={credit + debit}
+                icon={IconCreditCard}
+                accent="#7B337E"
+                breakdown={[
+                  { label: 'Crédito', value: credit },
+                  { label: 'Débito', value: debit },
+                  { label: 'Limite cadastrado', value: Number(card.credit_limit_cents || 0) / 100 },
+                ]}
+                actionLabel="Gerenciar cartão"
+                onAction={() => navigate(ROUTES.cards)}
+              />
+            ))}
+            {(paymentSummary.unassignedCredit > 0 || paymentSummary.unassignedDebit > 0) && (
+              <PaymentFolder
+                title="Cartão não identificado"
+                subtitle="Movimentações antigas"
+                amount={paymentSummary.unassignedCredit + paymentSummary.unassignedDebit}
+                icon={IconCreditCard}
+                accent="#6667AB"
+                breakdown={[
+                  { label: 'Crédito', value: paymentSummary.unassignedCredit },
+                  { label: 'Débito', value: paymentSummary.unassignedDebit },
+                ]}
+                actionLabel="Cadastrar cartão"
+                onAction={() => navigate(ROUTES.cards)}
+              />
+            )}
+          </div>
+          {!cards.length && <div className="payment-folder-empty"><p>Cadastre seus cartões para separar os gastos por cartão e por débito/crédito.</p><button className="ghost-btn" onClick={() => navigate(ROUTES.cards)}>Cadastrar cartão</button></div>}
+          <div className="chart-medium payment-chart"><ResponsiveContainer><BarChart data={monthlySeries} barGap={5}><CartesianGrid stroke={C.divider} vertical={false}/><XAxis dataKey="label" tick={{fill:C.textSoft,fontSize:12}} axisLine={false} tickLine={false}/><YAxis tick={{fill:C.textSoft,fontSize:11}} axisLine={false} tickLine={false} width={56}/><Tooltip cursor={chartCursor} contentStyle={tooltipStyle} formatter={(v,n)=>[money(v),n==="pix"?"Pix":"Cartão"]}/><Legend wrapperStyle={{fontSize:12}} formatter={(v)=>v==="pix"?"Pix":"Cartão"}/><Bar dataKey="pix" fill={C.lavender} radius={[6,6,0,0]}/><Bar dataKey="cartao" fill={C.purple} radius={[6,6,0,0]}/></BarChart></ResponsiveContainer></div>
         </Panel>
       </div>
 

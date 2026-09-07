@@ -12,6 +12,8 @@ export interface Transaction {
   category: string
   subcategory?: string
   paymentMethod?: string
+  accountId?: string
+  creditCardId?: string
   date: string
   status: TransactionStatus
   isRecurring: boolean

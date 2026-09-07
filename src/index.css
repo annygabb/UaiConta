@@ -3,6 +3,7 @@
 @import "./styles/part-3.css";
 @import "./styles/part-4.css";
 @import "./styles/v4.css";
+@import "./styles/v4-ui-enhancements.css";
 
 @tailwind base;
 @tailwind components;

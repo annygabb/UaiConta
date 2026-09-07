@@ -4,6 +4,8 @@ import { entityRepository } from '../../features/settings/entity.repository.ts'
 import { isSupabaseConfigured } from '../../infrastructure/supabase/client.ts'
 import { formatCents, reaisToCents } from '../../domain/money/money.ts'
 import SelectField from '../../components/ui/SelectField.jsx'
+import PurpleCheckbox from '../../components/ui/PurpleCheckbox.jsx'
+import PurpleDatePicker from '../../components/ui/PurpleDatePicker.jsx'
 
 function normalizeValue(field, value) {
   if (field.money) return reaisToCents(value)
@@ -117,7 +119,9 @@ export default function SimpleCrudPage({
           {fields.map((field) => <label key={field.key} className={field.full ? 'full' : ''}><span>{field.label}</span>{field.type === 'select' ? (
             <SelectField value={form[field.key] ?? ''} onChange={(value) => setForm((prev) => ({ ...prev, [field.key]: value }))} options={field.options || []} placeholder="Selecione" ariaLabel={field.label} />
           ) : field.type === 'checkbox' ? (
-            <input type="checkbox" checked={Boolean(form[field.key])} onChange={(event) => setForm((prev) => ({ ...prev, [field.key]: event.target.checked }))}/>
+            <PurpleCheckbox checked={Boolean(form[field.key])} onCheckedChange={(checked) => setForm((prev) => ({ ...prev, [field.key]: checked }))} label={field.checkboxLabel || field.label} ariaLabel={field.label} />
+          ) : field.type === 'date' ? (
+            <PurpleDatePicker value={form[field.key] ?? ''} onChange={(value) => setForm((prev) => ({ ...prev, [field.key]: value }))} min={field.minDate} max={field.maxDate} ariaLabel={field.label} />
           ) : (
             <input type={field.type || 'text'} inputMode={field.money ? 'decimal' : undefined} value={form[field.key] ?? ''} onChange={(event) => setForm((prev) => ({ ...prev, [field.key]: event.target.value }))} required={field.required} min={field.min} max={field.max} placeholder={field.placeholder}/>
           )}</label>)}

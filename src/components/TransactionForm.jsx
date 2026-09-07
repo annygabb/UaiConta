@@ -11,6 +11,10 @@ import {
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, INVESTMENT_CATEGORIES, PAYMENT_METHODS, TRANSACTION_TYPES } from '../constants.js'
 import { currencyInput, isoDate, parseCurrencyInput, uid } from '../utils.js'
 import SelectField from './ui/SelectField.jsx'
+import PurpleDatePicker from './ui/PurpleDatePicker.jsx'
+import PurpleCheckbox from './ui/PurpleCheckbox.jsx'
+import { entityRepository } from '../features/settings/entity.repository.ts'
+import { isSupabaseConfigured } from '../infrastructure/supabase/client.ts'
 
 const TYPE_META = {
   despesa: { icon: IconReceipt, description: 'Compra, conta ou gasto' },
@@ -40,6 +44,8 @@ export default function TransactionForm({ initial, onCancel, onSave, onImportPdf
   const [description, setDescription] = useState(initial?.description || '')
   const [category, setCategory] = useState(initial?.category || categoriesFor(initial?.type || 'despesa')[0])
   const [paymentMethod, setPaymentMethod] = useState(initial?.paymentMethod || 'Pix')
+  const [creditCardId, setCreditCardId] = useState(initial?.creditCardId || '')
+  const [cards, setCards] = useState([])
   const [date, setDate] = useState(initial?.date || isoDate(new Date()))
   const [isRecurring, setIsRecurring] = useState(Boolean(initial?.isRecurring))
   const [frequency, setFrequency] = useState(initial?.frequency || 'mensal')
@@ -48,10 +54,24 @@ export default function TransactionForm({ initial, onCancel, onSave, onImportPdf
   const [saving, setSaving] = useState(false)
   const amount = parseCurrencyInput(amountText)
   const categories = useMemo(() => categoriesFor(type), [type])
+  const isCardPayment = paymentMethod === 'Cartão de crédito' || paymentMethod === 'Cartão de débito'
 
   useEffect(() => {
     if (!categories.includes(category)) setCategory(categories[0])
   }, [categories, category])
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || type === 'receita' || type === 'transferencia') return undefined
+    let active = true
+    entityRepository.list('credit_cards')
+      .then((rows) => { if (active) setCards(rows) })
+      .catch(() => {})
+    return () => { active = false }
+  }, [type])
+
+  useEffect(() => {
+    if (!isCardPayment && creditCardId) setCreditCardId('')
+  }, [isCardPayment, creditCardId])
 
   const canSave = amount > 0 && amount <= 999999999 && description.trim().length > 0 && date
   const hasChanges = amountText || description || notes || initial
@@ -83,6 +103,7 @@ export default function TransactionForm({ initial, onCancel, onSave, onImportPdf
         description: description.trim(),
         category,
         paymentMethod: type === 'transferencia' ? 'Transferência' : paymentMethod,
+        creditCardId: isCardPayment ? creditCardId || undefined : undefined,
         date,
         status: initial?.status || (date > today ? 'planned' : 'completed'),
         isRecurring,
@@ -168,16 +189,34 @@ export default function TransactionForm({ initial, onCancel, onSave, onImportPdf
             </label>
           )}
 
+          {type === 'despesa' && isCardPayment && (
+            <label className="field field-span-2">
+              <span>Qual cartão? <em>opcional para movimentações antigas</em></span>
+              <SelectField
+                value={creditCardId}
+                onChange={setCreditCardId}
+                options={cards.map((card) => ({ value: card.id, label: `${card.name}${card.bank ? ` · ${card.bank}` : ''}` }))}
+                placeholder={cards.length ? 'Selecione o cartão' : 'Cadastre um cartão em Mais > Cartões'}
+                ariaLabel="Cartão usado"
+              />
+              {!cards.length && <small className="field-help">Cadastre seus cartões para o painel separar Crédito e Débito por cartão.</small>}
+            </label>
+          )}
+
           <label className="field">
             <span>Data</span>
-            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+            <PurpleDatePicker value={date} onChange={setDate} ariaLabel="Data da movimentação" />
           </label>
 
-          <label className="toggle-field">
-            <input type="checkbox" checked={isRecurring} onChange={(event) => setIsRecurring(event.target.checked)} />
-            <span className="toggle-ui" aria-hidden="true" />
-            <span><strong>Recorrente</strong><small>Projeta ocorrências futuras como previstas.</small></span>
-          </label>
+          <div className="toggle-field purple-toggle-field">
+            <PurpleCheckbox
+              checked={isRecurring}
+              onCheckedChange={setIsRecurring}
+              label="Recorrente"
+              description="Projeta ocorrências futuras como previstas."
+              ariaLabel="Marcar movimentação como recorrente"
+            />
+          </div>
 
           {isRecurring && <>
             <label className="field">
@@ -186,7 +225,7 @@ export default function TransactionForm({ initial, onCancel, onSave, onImportPdf
             </label>
             <label className="field">
               <span>Data final <em>opcional</em></span>
-              <input type="date" min={date} value={recurrenceEndDate} onChange={(event) => setRecurrenceEndDate(event.target.value)} />
+              <PurpleDatePicker value={recurrenceEndDate} onChange={setRecurrenceEndDate} min={date} placeholder="Sem data final" ariaLabel="Data final da recorrência" />
             </label>
           </>}
 
