@@ -75,16 +75,18 @@ export default function SimpleCrudPage({
     setError('')
     const payload = Object.fromEntries(fields.map((field) => [field.key, normalizeValue(field, form[field.key])]))
     try {
+      let hookError = null
       if (editing?.id) {
         const saved = await entityRepository.update(table, editing.id, payload)
-        await onUpdated?.(saved, payload)
+        try { await onUpdated?.(saved, payload) } catch (err) { hookError = err }
       } else {
         const saved = await entityRepository.create(table, payload)
-        await onCreated?.(saved, payload)
+        try { await onCreated?.(saved, payload) } catch (err) { hookError = err }
       }
       closeForm()
       window.dispatchEvent(new CustomEvent('uaiconta:data-changed', { detail: { table } }))
       await reload()
+      if (hookError) setError(hookError?.message || 'O registro foi salvo, mas uma atualização relacionada não foi concluída.')
     } catch (err) { setError(err?.message || 'Não foi possível salvar.') }
     finally { setSaving(false) }
   }
@@ -93,7 +95,7 @@ export default function SimpleCrudPage({
     if (!window.confirm(`Excluir “${itemTitle(row)}”?`)) return
     try {
       await entityRepository.remove(table, row.id)
-      await onRemoved?.(row)
+      try { await onRemoved?.(row) } catch {}
       window.dispatchEvent(new CustomEvent('uaiconta:data-changed', { detail: { table } }))
       await reload()
     } catch (err) { setError(err?.message || 'Não foi possível excluir.') }
