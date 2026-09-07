@@ -30,6 +30,9 @@ export default function SimpleCrudPage({
   itemTitle = (row) => row.name || row.description || 'Item',
   itemSubtitle,
   emptyText = 'Nenhum item cadastrado ainda.',
+  onCreated,
+  onUpdated,
+  onRemoved,
 }) {
   const [rows, setRows] = useState([])
   const [editing, setEditing] = useState(undefined)
@@ -72,8 +75,13 @@ export default function SimpleCrudPage({
     setError('')
     const payload = Object.fromEntries(fields.map((field) => [field.key, normalizeValue(field, form[field.key])]))
     try {
-      if (editing?.id) await entityRepository.update(table, editing.id, payload)
-      else await entityRepository.create(table, payload)
+      if (editing?.id) {
+        const saved = await entityRepository.update(table, editing.id, payload)
+        await onUpdated?.(saved, payload)
+      } else {
+        const saved = await entityRepository.create(table, payload)
+        await onCreated?.(saved, payload)
+      }
       closeForm()
       window.dispatchEvent(new CustomEvent('uaiconta:data-changed', { detail: { table } }))
       await reload()
@@ -85,6 +93,7 @@ export default function SimpleCrudPage({
     if (!window.confirm(`Excluir “${itemTitle(row)}”?`)) return
     try {
       await entityRepository.remove(table, row.id)
+      await onRemoved?.(row)
       window.dispatchEvent(new CustomEvent('uaiconta:data-changed', { detail: { table } }))
       await reload()
     } catch (err) { setError(err?.message || 'Não foi possível excluir.') }
