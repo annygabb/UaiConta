@@ -30,20 +30,20 @@ test.beforeEach(async ({ page }) => resetDemo(page))
 test('navegação principal abre Movimentações, Análises e Mais', async ({ page }) => {
   await page.getByRole('link', { name: /Movimentações|Mov\./ }).first().click()
   await expect(page).toHaveURL(/\/movimentacoes$/)
-  await expect(page.getByRole('heading', { name: 'Movimentações' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Movimentações', exact: true })).toBeVisible()
 
   await page.getByRole('link', { name: 'Análises' }).first().click()
   await expect(page).toHaveURL(/\/analises$/)
-  await expect(page.getByRole('heading', { name: 'Análises' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Análises', exact: true })).toBeVisible()
 
   await page.getByRole('link', { name: 'Mais' }).first().click()
   await expect(page).toHaveURL(/\/mais$/)
-  await expect(page.getByRole('heading', { name: 'Mais' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mais', exact: true })).toBeVisible()
 })
 
 test('cria uma receita e atualiza card e detalhes', async ({ page }) => {
   await openTransactionForm(page)
-  await page.getByRole('button', { name: 'Receita', exact: true }).click()
+  await page.getByRole('button', { name: /^Receita/ }).click()
   await page.getByLabel('Valor').fill('500000')
   await page.getByPlaceholder('Ex: Salário NTT DATA').fill('Salário teste')
   await page.getByRole('button', { name: 'Adicionar movimentação' }).last().click()
@@ -69,5 +69,5 @@ test('rota direta funciona após refresh', async ({ page }) => {
   await enterDemo(page)
   await page.reload()
   await enterDemo(page)
-  await expect(page.getByRole('heading', { name: 'Análises' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Análises', exact: true })).toBeVisible()
 })
