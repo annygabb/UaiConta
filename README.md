@@ -1,4 +1,4 @@
-# UaiConta — Personal Finance OS
+# UaiConta
 
 > Controle financeiro pessoal open source para entender **quanto entrou, quanto saiu, onde o dinheiro foi, o que ainda está previsto e quanto tende a sobrar** — no computador, tablet e celular.
 
@@ -17,12 +17,14 @@ A proposta não é ser só um dashboard: o projeto separa **realizado x previsto
 - múltiplas fontes de renda;
 - recorrências que aparecem nos meses futuros como `planned`;
 - fundação tipada para parcelamento com divisão exata de centavos;
-- importação de vários PDFs localmente com `pdf.js`, sem Anthropic/Claude;
-- revisão dos lançamentos importados, confiança e aviso de duplicidade;
+- importação de PDF, imagem e CSV com revisão antes de persistir;
+- processamento de PDF localmente com `pdf.js`, sem Anthropic/Claude;
+- OCR open source para imagens e documentos digitalizados;
+- categorização como sugestão, com confiança e aviso de duplicidade;
 - notas, cupons e comprovantes em PDF/imagem/câmera;
-- OCR open source com Tesseract.js sem impedir o salvamento do original se falhar;
 - documentos privados no Supabase Storage;
-- interface responsiva e PWA;
+- exportação de dados em JSON, PDF e Excel;
+- interface responsiva, PWA e navegação mobile;
 - base modular, tipada, testável e preparada para self-host.
 
 ## Domínio financeiro
@@ -42,13 +44,14 @@ Transferências entre contas não contam como receita nem despesa global. Uma oc
 ### Dashboard e análises
 
 - cards clicáveis de Receita, Gastos, Investimentos e Economia;
-- seletor central de mês/ano/período;
-- radial financeiro espacial com os mesmos dados da fonte central de métricas;
+- seletor central de período com roleta de mês/ano;
+- visual financeiro com moeda 3D e os mesmos dados da fonte central de métricas;
 - fluxo/waterfall `Receita → Gastos → Investimentos → Sobra`;
 - donut de gastos por categoria;
 - estado especial para gastos não categorizados;
-- barras Pix x cartão;
-- tendências e insights derivados dos dados reais.
+- visão Pix x cartões, separando crédito/débito quando identificado;
+- tendências e insights derivados dos dados reais;
+- textos e cards protegidos contra overflow em telas menores.
 
 ### Movimentações
 
@@ -59,38 +62,54 @@ Tipos:
 - investimento;
 - transferência.
 
-Suporta categoria, forma de pagamento, status, recorrência, observação e origem do dado. A ligação completa de contas/cartões/subcategorias/parcelas ao formulário está listada nas pendências da beta.
+Suporta categoria, forma de pagamento, status, recorrência, observação e origem do dado. Os filtros usam componentes estáveis para não deslocar a página nem ampliar o viewport ao abrir menus.
 
 ### Contas, cartões e categorias
 
-Há CRUD inicial para contas, cartões e categorias. Subcategorias e regras avançadas de arquivamento continuam na estabilização da beta.
+Há CRUD para contas, cartões e categorias. Cartões podem ter nome, banco, limite, fechamento e vencimento, e o dashboard associa movimentações aos cartões identificados.
 
 ### Recorrências
 
-Estratégia híbrida: a regra é persistida e as ocorrências futuras são projetadas virtualmente. Uma ocorrência pode ser confirmada ou pulada sem transformar automaticamente todo o futuro em realizado.
+Estratégia híbrida: a regra é persistida e as ocorrências futuras são projetadas virtualmente. Uma ocorrência pode ser confirmada ou pulada sem transformar automaticamente todo o futuro em realizado. Fontes de renda ativas e recorrentes, como salário, geram a regra correspondente para aparecer na área de Recorrências.
 
 ### Parcelas
 
-O domínio já possui divisão exata em centavos e a migration cria a fundação de planos/parcelas. A criação e edição completa de compras parceladas pela interface ainda está em `PENDENCIAS.md` e não é apresentada como concluída.
+O domínio possui divisão exata em centavos e a migration cria a fundação de planos/parcelas. Melhorias adicionais do fluxo completo de parcelamento permanecem documentadas em `PENDENCIAS.md` enquanto não forem validadas ponta a ponta.
 
-### PDFs de extratos/faturas
+### Importação de arquivos
 
-- múltiplos PDFs;
-- fila sequencial;
-- drag and drop;
-- processamento local com `pdf.js`;
+- PDF, imagens e CSV;
+- fila e revisão antes da importação;
+- processamento local de PDF com `pdf.js`;
+- OCR open source quando necessário;
 - filtro de texto informativo/rodapé;
-- `rawDescription` separado de descrição de exibição;
+- `rawDescription` separado da descrição de exibição;
 - categorização apenas como sugestão;
 - confiança alta/média/baixa;
 - detecção de possível duplicidade;
-- revisão antes de persistir.
+- rascunho local persistente para não perder os arquivos selecionados ao sair da tela.
 
 ### Notas e comprovantes
 
-Formatos: PDF, JPG, PNG e WEBP. No mobile também é possível usar a câmera. O original é preservado mesmo se o OCR falhar.
+Formatos suportados incluem PDF, JPG, PNG e WEBP. No mobile também é possível usar a câmera. O original é preservado mesmo se o OCR falhar.
 
-A beta permite listar e baixar o original armazenado no bucket privado `financial-documents`. O viewer avançado com zoom/pan/fullscreen ainda está em estabilização e está documentado em `PENDENCIAS.md`.
+Os arquivos ficam no bucket privado `financial-documents` quando o Supabase está configurado, com acesso autenticado e URLs assinadas de curta duração.
+
+### Dados e backup
+
+A área **Dados e backup** permite escolher o formato conforme o objetivo:
+
+- **JSON**: backup técnico estruturado;
+- **PDF**: relatório legível gerado localmente;
+- **Excel**: planilha para filtros e análise.
+
+## Login, privacidade e sessão
+
+- login e cadastro separados por abas estáveis;
+- validação visual dos campos e indicador de senha forte;
+- Termos de Uso e Política de Privacidade acessíveis antes do cadastro;
+- tratamento amigável para sessão com relógio/JWT fora de sincronia;
+- dados locais antigos são migrados automaticamente para a conta quando possível, preservando o backup no navegador.
 
 ## Segurança
 
@@ -149,19 +168,21 @@ tests/
 - React Router;
 - Radix Select;
 - Tabler Icons;
+- GSAP + Motion para interações pontuais;
 - Recharts;
 - Supabase Auth + PostgreSQL + Storage;
+- Supabase Edge Functions em TypeScript;
 - pdf.js;
 - Tesseract.js;
+- jsPDF para relatório local;
 - Vitest;
 - Playwright + axe.
 
-## Testar a branch V4 em modo Demo
+## Testar em modo Demo
 
 ```bash
 git clone https://github.com/annygabb/UaiConta.git
 cd UaiConta
-git checkout feat/uaiconta-v4
 npm install
 npm run dev -- --mode demo
 ```
@@ -172,7 +193,7 @@ O modo Demo é explícito e usa persistência local apenas para desenvolvimento/
 
 1. Crie um projeto Supabase.
 2. Execute `supabase/schema.sql` para a base inicial.
-3. Depois aplique `supabase/migrations/20260906150000_v4_foundation.sql`.
+3. Aplique as migrations incrementais de `supabase/migrations/` na ordem.
 4. Faça deploy da função de exclusão com `supabase functions deploy delete-account`.
 5. Copie `.env.example` para `.env.local`.
 6. Configure:
@@ -201,14 +222,16 @@ npm run test:unit
 npm run test:security
 npm run build:demo
 npm run test:e2e
+npm run test:responsive
+npm run test:a11y
 npm run audit
 ```
 
-O Playwright possui cenários para desktop/mobile/tablet, overflow horizontal em viewports críticos e acessibilidade com axe. O resultado efetivo deve ser conferido no GitHub Actions desta branch.
+O Playwright valida desktop e mobile, rotas críticas, overflow horizontal em uma matriz de viewports, abertura estável de filtros, sidebar recolhida, seletor de período e acessibilidade com axe. O resultado efetivo de cada revisão deve ser conferido no GitHub Actions antes de promover a versão para produção.
 
 ## PWA e responsividade
 
-O projeto possui manifest, service worker, ícones e suporte standalone. A interface considera safe areas, bottom navigation mobile, tabelas convertidas em cards e `prefers-reduced-motion`.
+O projeto possui manifest, service worker, ícones e suporte standalone. A interface considera safe areas, bottom navigation mobile, tabelas convertidas em cards, roletas de data/período adaptadas como bottom sheet em telas pequenas e `prefers-reduced-motion`.
 
 A matriz completa de validação e pendências fica em [`PENDENCIAS.md`](./PENDENCIAS.md).
 
@@ -218,4 +241,4 @@ Licença MIT. Veja [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ## Estado do projeto
 
-A branch `feat/uaiconta-v4` prioriza o ciclo **MVP funcional → UI/UX → responsividade → testes → performance**. Itens que dependem de infraestrutura real ou ainda estão parciais ficam explicitamente documentados, em vez de serem apresentados como concluídos sem teste.
+A revisão atual prioriza o ciclo **MVP funcional → integridade dos dados → UI/UX → responsividade → testes → performance**. Itens ainda parciais ficam explicitamente documentados em vez de serem apresentados como concluídos sem validação.

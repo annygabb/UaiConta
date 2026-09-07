@@ -153,10 +153,12 @@ export function getLocalMigrationRows() {
     const current = safeJson(localStorage.getItem(LOCAL_KEY), null)
     const legacy = safeJson(localStorage.getItem(LEGACY_KEY), [])
     const rows = Array.isArray(current) ? current : Array.isArray(legacy) ? legacy : []
-    return rows.map((item) => normalizeTx({
+    const normalized = rows.map((item) => normalizeTx({
       ...item,
       id: uuidPattern.test(String(item.id || '')) ? item.id : uid(),
     }))
+    if (normalized.length) localStorage.setItem(LOCAL_KEY, JSON.stringify(normalized))
+    return normalized
   } catch {
     return []
   }

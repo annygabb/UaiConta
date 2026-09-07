@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
-import { DayPicker } from 'react-day-picker'
-import { ptBR } from 'react-day-picker/locale'
-import 'react-day-picker/style.css'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useReducedMotion } from 'motion/react'
 import { IconCalendar, IconChevronDown } from '@tabler/icons-react'
+
+const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 function parseIso(value) {
   if (!value) return undefined
@@ -26,67 +26,117 @@ function dateLabel(value, placeholder) {
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).format(parsed)
 }
 
-const calendarClassNames = {
-  root: 'purple-calendar-root',
-  months: 'purple-calendar-months',
-  month: 'purple-calendar-month',
-  month_caption: 'purple-calendar-month-caption',
-  caption_label: 'purple-calendar-caption-label',
-  nav: 'purple-calendar-nav',
-  button_previous: 'purple-calendar-nav-button previous',
-  button_next: 'purple-calendar-nav-button next',
-  month_grid: 'purple-calendar-grid',
-  weekdays: 'purple-calendar-weekdays',
-  weekday: 'purple-calendar-weekday',
-  week: 'purple-calendar-week',
-  day: 'purple-calendar-day',
-  day_button: 'purple-calendar-day-button',
-  today: 'purple-calendar-today',
-  selected: 'purple-calendar-selected',
-  outside: 'purple-calendar-outside',
-  disabled: 'purple-calendar-disabled',
-  chevron: 'purple-calendar-chevron',
+function daysInMonth(year, month) {
+  return new Date(year, month, 0).getDate()
+}
+
+function withinRange(date, minDate, maxDate) {
+  if (minDate && date < minDate) return false
+  if (maxDate && date > maxDate) return false
+  return true
 }
 
 export default function PurpleDatePicker({ value, onChange, min, max, placeholder = 'Selecionar data', ariaLabel = 'Selecionar data', disabled = false }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
-  const selected = parseIso(value)
+  const dayRef = useRef(null)
+  const monthRef = useRef(null)
+  const yearRef = useRef(null)
+  const reduce = useReducedMotion() ?? false
+  const selected = parseIso(value) || new Date()
   const minDate = parseIso(min)
   const maxDate = parseIso(max)
+  const [draftDay, setDraftDay] = useState(selected.getDate())
+  const [draftMonth, setDraftMonth] = useState(selected.getMonth() + 1)
+  const [draftYear, setDraftYear] = useState(selected.getFullYear())
+
+  const yearValues = useMemo(() => {
+    const now = new Date().getFullYear()
+    const first = minDate?.getFullYear() ?? Math.min(now - 80, draftYear - 20)
+    const last = maxDate?.getFullYear() ?? Math.max(now + 20, draftYear + 20)
+    return Array.from({ length: Math.max(1, last - first + 1) }, (_, index) => first + index)
+  }, [draftYear, minDate, maxDate])
+
+  const dayValues = useMemo(() => Array.from({ length: daysInMonth(draftYear, draftMonth) }, (_, index) => index + 1), [draftMonth, draftYear])
+
+  useEffect(() => {
+    const maxDay = daysInMonth(draftYear, draftMonth)
+    if (draftDay > maxDay) setDraftDay(maxDay)
+  }, [draftDay, draftMonth, draftYear])
 
   useEffect(() => {
     if (!open) return undefined
+    const source = parseIso(value) || new Date()
+    setDraftDay(source.getDate())
+    setDraftMonth(source.getMonth() + 1)
+    setDraftYear(source.getFullYear())
     const onPointerDown = (event) => { if (!rootRef.current?.contains(event.target)) setOpen(false) }
     const onKeyDown = (event) => { if (event.key === 'Escape') setOpen(false) }
     document.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
-    return () => { document.removeEventListener('pointerdown', onPointerDown); document.removeEventListener('keydown', onKeyDown) }
-  }, [open])
+    const timer = window.setTimeout(() => {
+      const behavior = reduce ? 'auto' : 'smooth'
+      dayRef.current?.scrollIntoView({ block: 'center', behavior })
+      monthRef.current?.scrollIntoView({ block: 'center', behavior })
+      yearRef.current?.scrollIntoView({ block: 'center', behavior })
+    }, 30)
+    return () => {
+      window.clearTimeout(timer)
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open, reduce, value])
 
-  const disabledMatchers = [minDate ? { before: minDate } : null, maxDate ? { after: maxDate } : null].filter(Boolean)
+  const apply = () => {
+    const next = new Date(draftYear, draftMonth - 1, draftDay, 12, 0, 0)
+    if (!withinRange(next, minDate, maxDate)) return
+    onChange?.(toIso(next))
+    setOpen(false)
+  }
+
+  const chooseToday = () => {
+    const now = new Date()
+    const safe = withinRange(now, minDate, maxDate) ? now : (minDate || maxDate)
+    if (!safe) return
+    onChange?.(toIso(safe))
+    setOpen(false)
+  }
+
+  const draftDate = new Date(draftYear, draftMonth - 1, draftDay, 12, 0, 0)
+  const validDraft = withinRange(draftDate, minDate, maxDate)
 
   return (
-    <div className="purple-date-picker purple-date-picker-v5" ref={rootRef}>
+    <div className="purple-date-picker purple-date-picker-v6" ref={rootRef}>
       <button type="button" className="purple-date-trigger" aria-label={ariaLabel} aria-expanded={open} disabled={disabled} onClick={() => setOpen((current) => !current)}>
         <span><IconCalendar size={18} stroke={1.8} className="purple-date-icon" /> {dateLabel(value, placeholder)}</span>
         <IconChevronDown size={16} className={open ? 'rotate-180' : ''} />
       </button>
       {open && (
-        <div className="purple-calendar-popover" role="dialog" aria-label={ariaLabel}>
-          <DayPicker
-            mode="single"
-            selected={selected}
-            defaultMonth={selected || minDate || new Date()}
-            onSelect={(next) => { if (!next) return; onChange?.(toIso(next)); setOpen(false) }}
-            locale={ptBR}
-            weekStartsOn={0}
-            fixedWeeks
-            showOutsideDays
-            disabled={disabledMatchers.length ? disabledMatchers : undefined}
-            classNames={calendarClassNames}
-          />
-          <div className="purple-calendar-footer"><span>Hoje</span><button type="button" onClick={() => { onChange?.(toIso(new Date())); setOpen(false) }}>Selecionar hoje</button></div>
+        <div className="purple-calendar-popover date-wheel-popover" role="dialog" aria-label={ariaLabel}>
+          <div className="date-wheel-heading"><span>Dia</span><span>Mês</span><span>Ano</span></div>
+          <div className="date-wheel-grid">
+            <div className="wheel-column" aria-label="Dia">
+              <span className="wheel-spacer" aria-hidden="true" />
+              {dayValues.map((day) => <button ref={draftDay === day ? dayRef : undefined} type="button" className={draftDay === day ? 'active' : ''} key={day} onClick={() => setDraftDay(day)}>{String(day).padStart(2, '0')}</button>)}
+              <span className="wheel-spacer" aria-hidden="true" />
+            </div>
+            <div className="wheel-column" aria-label="Mês">
+              <span className="wheel-spacer" aria-hidden="true" />
+              {MONTHS.map((label, index) => {
+                const month = index + 1
+                return <button ref={draftMonth === month ? monthRef : undefined} type="button" className={draftMonth === month ? 'active' : ''} key={label} onClick={() => setDraftMonth(month)}>{label}</button>
+              })}
+              <span className="wheel-spacer" aria-hidden="true" />
+            </div>
+            <div className="wheel-column" aria-label="Ano">
+              <span className="wheel-spacer" aria-hidden="true" />
+              {yearValues.map((year) => <button ref={draftYear === year ? yearRef : undefined} type="button" className={draftYear === year ? 'active' : ''} key={year} onClick={() => setDraftYear(year)}>{year}</button>)}
+              <span className="wheel-spacer" aria-hidden="true" />
+            </div>
+            <span className="wheel-selection-band" aria-hidden="true" />
+          </div>
+          {!validDraft && <p className="date-wheel-error">Essa data está fora do intervalo permitido.</p>}
+          <div className="date-wheel-actions"><button type="button" className="ghost-btn" onClick={chooseToday}>Hoje</button><button type="button" className="primary-btn" disabled={!validDraft} onClick={apply}>Aplicar</button></div>
         </div>
       )}
     </div>
