@@ -1,36 +1,32 @@
-# Security & Quality Review — UaiConta 2.0
+# Security & Quality Review — UaiConta V4
 
-## Status da revisão implementada
+## PASS — revisão estática
 
-| Área | Status | Evidência |
-|---|---|---|
-| Anthropic removido | PASS | `api/extract.js` removido; PDF usa apenas `pdf.js` |
-| Separação de domínio financeiro | PASS | `receita`, `despesa`, `investimento`, `transferencia` |
-| Transferência não distorce métricas | PASS | testes em `tests/unit/finance.test.js` |
-| Unit tests | PASS | `npm test` — 8 testes passando durante esta revisão |
-| Banco real preparado | PASS | `supabase/schema.sql` |
-| RLS | PASS | policies por `auth.uid()` em tabelas financeiras |
-| Segredo no client | PASS | apenas URL e anon key do Supabase; nenhuma service-role key |
-| PDF múltiplo | PASS | `multiple`, fila sequencial, revisão por arquivo |
-| Duplicidade de PDF | PASS | fingerprint de data + valor + descrição + pagamento |
-| CSP/headers | PASS | `vercel.json` |
-| Responsividade planejada | PASS | breakpoints desktop/tablet/mobile/320px |
-| Reduced motion | PASS | CSS `prefers-reduced-motion` |
-| E2E | WARNING | specs Playwright criadas; requer `npm install` + browser Playwright no ambiente de execução |
-| Build final | WARNING | instalação de pacotes não concluiu neste ambiente por timeout de rede; validar com `npm install && npm run build` local/CI |
-| Acessibilidade automatizada | WARNING | foco/labels/semântica implementados; axe/Lighthouse ainda devem rodar em CI |
+- produção não usa fallback local silencioso;
+- frontend não contém `service_role`;
+- PDF não contém Anthropic/Claude API;
+- RLS habilitado nas tabelas do app;
+- policies usam `TO authenticated` + ownership;
+- UPDATE possui `USING` + `WITH CHECK`;
+- bucket `financial-documents` é privado;
+- Storage Policies limitam o primeiro segmento da pasta ao `auth.uid()`;
+- MIME e tamanho de documentos são validados;
+- dinheiro é armazenado em centavos;
+- recorrências futuras permanecem `planned`;
+- transferências não entram como receita/despesa global;
+- reduced motion e safe areas estão previstos;
+- testes unitários, baseline estático de segurança, E2E, responsividade e axe foram criados.
+- Edge Function `delete-account` mantém `service_role` somente no runtime server-side e deriva o usuário do JWT verificado.
 
-## Checklist de segurança para produção
+## WARNING — exige ambiente externo
 
-- [ ] Confirmar e-mail habilitado no Supabase Auth.
-- [ ] Revisar políticas RLS após qualquer nova tabela.
-- [ ] Nunca adicionar `SUPABASE_SERVICE_ROLE_KEY` ao frontend.
-- [ ] Executar `npm audit` no CI.
-- [ ] Executar E2E com usuário A e usuário B para confirmar isolamento real.
-- [ ] Validar CSP no domínio final.
-- [ ] Configurar backup/recovery do Supabase.
-- [ ] Se futuramente houver backend próprio, adicionar rate limiting server-side.
+- executar schema/migrations e fazer deploy da Edge Function `delete-account` em Supabase real;
+- validar RLS com dois usuários reais;
+- executar `npm audit` após instalação;
+- executar Lighthouse em deploy;
+- validar PWA em Android/iOS;
+- gerar/commitar lockfile via CI porque npm local ficou indisponível.
 
-## Breakpoints que devem entrar na matriz visual de QA
+## FAIL
 
-`320`, `360`, `375`, `390`, `414`, `768`, `1024`, `1280`, `1440`, `1920` px.
+Nenhum FAIL crítico conhecido na revisão estática atual. Qualquer FAIL encontrado pelo CI deve ser corrigido antes de mergear a branch V4.

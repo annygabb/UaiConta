@@ -1,0 +1,252 @@
+/* UaiConta V4.1 — componentes interativos adaptados à paleta Moon. */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.text-scramble { display: inline; white-space: normal; }
+
+/* Checkbox com borda tracejada, agora roxo Moon. */
+.purple-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0;
+  cursor: pointer;
+  color: var(--text);
+}
+.purple-checkbox-control { position: relative; display: inline-grid; width: 21px; height: 21px; flex: 0 0 21px; margin-top: 1px; }
+.purple-checkbox-control input { position: absolute; inset: 0; width: 21px; height: 21px; opacity: 0; cursor: pointer; }
+.purple-checkbox-box {
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border: 1px dashed rgba(185, 156, 218, .6);
+  border-radius: 6px;
+  color: transparent;
+  background: rgba(255,255,255,.018);
+  transition: background .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
+}
+.purple-checkbox-control input:checked + .purple-checkbox-box {
+  border-style: solid;
+  border-color: #A47AD0;
+  background: #7B337E;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(123,51,126,.13), 0 8px 26px rgba(66,13,75,.28);
+}
+.purple-checkbox-control input:focus-visible + .purple-checkbox-box { outline: 2px solid #A99BE0; outline-offset: 3px; }
+.purple-checkbox-control input:disabled + .purple-checkbox-box { opacity: .45; cursor: not-allowed; }
+.purple-checkbox-copy { display: grid; gap: 3px; min-width: 0; }
+.purple-checkbox-copy strong { font-size: 13px; line-height: 1.35; }
+.purple-checkbox-copy small { color: var(--muted); font-size: 11px; line-height: 1.45; }
+.purple-toggle-field { display: flex; align-items: center; min-height: 48px; }
+
+/* Date picker com navegação alinhada à esquerda e estado selecionado roxo. */
+.purple-date-picker { position: relative; width: 100%; min-width: 0; }
+.purple-date-trigger {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 0 12px;
+  background: var(--bg-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.purple-date-trigger > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.purple-date-trigger svg { color: #A99BE0; transition: transform .16s ease; }
+.purple-date-trigger .rotate-180 { transform: rotate(180deg); }
+.purple-date-trigger:hover { border-color: rgba(169,155,224,.32); background: rgba(33,20,42,.84); }
+.purple-date-trigger:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.purple-calendar-popover {
+  position: absolute;
+  z-index: 160;
+  left: 0;
+  top: calc(100% + 8px);
+  width: min(330px, calc(100vw - 28px));
+  padding: 10px;
+  border: 1px solid rgba(164,122,208,.28);
+  border-radius: 17px;
+  background: rgba(18,13,24,.985);
+  box-shadow: 0 28px 90px rgba(0,0,0,.58), 0 0 38px rgba(123,51,126,.08);
+  backdrop-filter: blur(20px);
+}
+.purple-calendar-popover .rdp-root {
+  --rdp-accent-color: #B48BDD;
+  --rdp-accent-background-color: rgba(123,51,126,.28);
+  --rdp-day_button-border-radius: 10px;
+  --rdp-day_button-height: 38px;
+  --rdp-day_button-width: 38px;
+  --rdp-selected-border: 0;
+  margin: 0;
+  color: var(--text);
+}
+.purple-calendar-popover .rdp-month { width: 100%; }
+.purple-calendar-popover .rdp-month_grid { width: 100%; border-collapse: separate; border-spacing: 2px; }
+.purple-calendar-popover .rdp-weekday { color: #8F8794; font-size: 10px; font-weight: 600; }
+.purple-calendar-month-caption { display: flex !important; height: 34px; align-items: center; justify-content: flex-end !important; padding: 0 5px; font-size: 13px; font-weight: 650; }
+.purple-calendar-nav { position: absolute !important; inset-inline: 10px auto !important; top: 10px !important; display: flex !important; width: auto !important; align-items: center; justify-content: flex-start !important; gap: 3px; }
+.purple-calendar-popover .rdp-button_previous,
+.purple-calendar-popover .rdp-button_next { width: 32px; height: 32px; min-height: 32px; border-radius: 9px; color: #B79ACF; background: rgba(255,255,255,.025); }
+.purple-calendar-popover .rdp-button_previous:hover,
+.purple-calendar-popover .rdp-button_next:hover { background: rgba(123,51,126,.16); color: #fff; }
+.purple-calendar-today { background: transparent !important; color: #D6B8EA !important; }
+.purple-calendar-day-button { outline: 0 !important; border: 0 !important; min-width: 38px !important; min-height: 38px !important; box-shadow: none !important; color: inherit; }
+.purple-calendar-popover .rdp-day:not(.rdp-selected) .purple-calendar-day-button:hover { background: rgba(123,51,126,.15) !important; }
+.purple-calendar-popover .rdp-selected .purple-calendar-day-button { background: linear-gradient(135deg,#7B337E,#6667AB) !important; color: #fff !important; box-shadow: 0 8px 24px rgba(66,13,75,.35) !important; }
+.purple-calendar-popover .rdp-disabled { opacity: .28; }
+.purple-calendar-popover button:focus-visible { outline: 2px solid #A99BE0 !important; outline-offset: 1px !important; }
+
+/* Upload real: estados de fila/processamento, sem progresso randômico. */
+.file-upload-panel { display: grid; gap: 12px; width: 100%; }
+.file-upload-dropzone {
+  width: 100%;
+  min-height: 178px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  padding: 22px;
+  border: 1px dashed rgba(180,139,221,.46);
+  border-radius: 17px;
+  background: radial-gradient(circle at 50% 0%, rgba(123,51,126,.10), transparent 55%), rgba(9,7,13,.46);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+.file-upload-dropzone:hover,
+.file-upload-dropzone.is-dragging { border-color: #A47AD0; background: radial-gradient(circle at 50% 0%, rgba(123,51,126,.20), transparent 60%), rgba(18,13,24,.76); }
+.file-upload-dropzone.is-dragging { transform: translateY(-2px); }
+.file-upload-icon { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 14px; color: #D7B6ED; background: linear-gradient(145deg,rgba(123,51,126,.26),rgba(102,103,171,.16)); box-shadow: inset 0 0 0 1px rgba(180,139,221,.18); }
+.file-upload-dropzone strong { font-size: 14px; }
+.file-upload-dropzone > span:not(.file-upload-icon) { color: #B7AFBC; font-size: 12px; text-align: center; }
+.file-upload-dropzone small { color: #817887; font-size: 10px; }
+.file-upload-error { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 11px; color: #E6B7CB; background: rgba(125,47,81,.10); border: 1px solid rgba(224,166,196,.16); font-size: 12px; }
+.file-upload-list { display: grid; gap: 7px; }
+.file-upload-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 11px; }
+.file-upload-list-head button { min-height: 34px; display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: #BCA3D5; cursor: pointer; }
+.file-upload-item { display: grid; grid-template-columns: 38px minmax(0,1fr) auto; align-items: center; gap: 10px; min-height: 65px; padding: 10px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,255,255,.018); }
+.file-upload-file-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 11px; color: #BCA3D5; background: rgba(123,51,126,.12); }
+.file-upload-copy { display: grid; gap: 3px; min-width: 0; }
+.file-upload-copy strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+.file-upload-copy small { color: var(--muted); font-size: 10px; }
+.file-upload-copy em { color: #DDA3BD; font-size: 10px; font-style: normal; }
+.file-upload-status { display: flex; align-items: center; gap: 7px; }
+.file-upload-status > span { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 10px; }
+.file-upload-status > button:not(.icon-btn) { min-height: 32px; border: 0; background: transparent; color: #C3A6DE; font-size: 10px; cursor: pointer; }
+.file-upload-progress { display: block; width: 100%; height: 3px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.05); }
+.file-upload-progress i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#6667AB,#A45BB1); }
+.file-upload-progress.complete i { width: 100%; }
+.file-upload-progress.indeterminate i { width: 38%; animation: uaiconta-upload-progress 1.15s ease-in-out infinite; }
+@keyframes uaiconta-upload-progress { 0% { transform: translateX(-110%); } 100% { transform: translateX(290%); } }
+.camera-upload-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+/* Folder financeiro inspirado no card-folder, sem guardar PAN/CVV. */
+.payment-folder-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 13px; align-items: start; }
+.payment-folder { --folder-accent: #7B337E; position: relative; min-width: 0; }
+.payment-folder-toggle { position: relative; width: 100%; height: 184px; border: 0; background: transparent; padding: 0; text-align: left; cursor: pointer; perspective: 1000px; }
+.payment-folder-back { position: absolute; inset: 38px 0 0; border-radius: 18px; border: 1px solid rgba(245,213,224,.08); background: linear-gradient(150deg,rgba(255,255,255,.028),rgba(123,51,126,.06)); }
+.payment-folder-card { position: absolute; z-index: 2; left: 5%; right: 5%; top: 0; height: 132px; display: flex; flex-direction: column; padding: 16px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--folder-accent) 35%, rgba(255,255,255,.08)); background: radial-gradient(circle at 80% 10%, color-mix(in srgb,var(--folder-accent) 24%, transparent), transparent 45%), linear-gradient(145deg,#1C1224,#100A15); box-shadow: 0 20px 50px rgba(0,0,0,.28); overflow: hidden; }
+.payment-folder-card::after { content: ''; position: absolute; width: 120px; height: 120px; right: -50px; top: -54px; border: 1px solid color-mix(in srgb,var(--folder-accent) 32%, transparent); border-radius: 50%; }
+.payment-folder-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #A99FAC; font-size: 10px; }
+.payment-folder-icon { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 10px; color: #E9D9F2; background: color-mix(in srgb,var(--folder-accent) 24%, transparent); }
+.payment-folder-card > strong { margin-top: 16px; font-size: 14px; color: #fff; }
+.payment-folder-card > b { margin-top: 5px; font-size: clamp(19px,2vw,24px); letter-spacing: -.03em; color: #F7F4FA; }
+.payment-folder-front { position: absolute; z-index: 4; inset: 88px 0 0; transform-origin: center bottom; border-radius: 16px 16px 18px 18px; border: 1px solid rgba(245,213,224,.08); background: linear-gradient(150deg,color-mix(in srgb,var(--folder-accent) 17%, #140D1B),#100A15); box-shadow: 0 -8px 30px rgba(0,0,0,.16); }
+.payment-folder-front i { position: absolute; left: 15px; right: 15px; top: 14px; height: 1px; border-top: 1px dashed rgba(245,213,224,.17); }
+.payment-folder-chevron { position: absolute; z-index: 6; right: 14px; bottom: 14px; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: #C6B2D6; background: rgba(0,0,0,.20); }
+.payment-folder-details { overflow: hidden; display: grid; gap: 0; margin-top: 7px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,255,255,.015); }
+.payment-folder-details > div { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.payment-folder-details > div:last-of-type { border-bottom: 0; }
+.payment-folder-details span { color: var(--muted); font-size: 11px; }
+.payment-folder-details strong { color: var(--text); font-size: 11px; text-align: right; }
+.payment-folder-details p { margin: 0; padding: 12px; color: var(--muted); font-size: 11px; }
+.payment-folder-action { margin: 7px; }
+.payment-folder-empty { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 13px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; }
+.payment-folder-empty p { margin: 0; color: var(--muted); font-size: 11px; }
+.payment-chart { margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--line); }
+.registered-card-folder { position: relative; min-width: 0; }
+.registered-card-delete { position: absolute; z-index: 12; top: 8px; right: 8px; background: rgba(15,9,18,.68); backdrop-filter: blur(10px); }
+.card-security-note { padding: 11px 12px; border: 1px solid rgba(169,155,224,.14); border-radius: 11px; color: var(--muted); background: rgba(102,103,171,.045); font-size: 11px; line-height: 1.5; }
+
+/* Sidebar animada: largura morfa sem mudar a navegação mobile. */
+.animated-sidebar { overflow: hidden; will-change: width; }
+.animated-sidebar-head { display: flex; align-items: center; justify-content: space-between; gap: 7px; min-height: 58px; }
+.animated-sidebar .brand { min-width: 0; overflow: hidden; }
+.animated-sidebar .brand > span:last-child { min-width: 128px; }
+.sidebar-collapse { width: 38px; min-width: 38px; min-height: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 11px; color: #9F95A5; background: rgba(255,255,255,.018); cursor: pointer; }
+.sidebar-collapse:hover { color: #fff; border-color: rgba(169,155,224,.22); background: rgba(123,51,126,.10); }
+.animated-sidebar .side-nav a { position: relative; overflow: hidden; isolation: isolate; white-space: nowrap; }
+.sidebar-active-pill { position: absolute; z-index: -1; inset: 2px; border-radius: 10px; background: linear-gradient(90deg,rgba(102,103,171,.18),rgba(123,51,126,.16)); box-shadow: inset 3px 0 #8C77D0; }
+.sidebar-nav-icon { position: relative; z-index: 1; flex: 0 0 auto; }
+.sidebar-nav-label { position: relative; z-index: 1; min-width: 145px; }
+.animated-sidebar.is-collapsed .animated-sidebar-head { justify-content: center; flex-wrap: wrap; padding-top: 3px; }
+.animated-sidebar.is-collapsed .brand { justify-content: center; padding-inline: 0; }
+.animated-sidebar.is-collapsed .side-nav a { justify-content: center; padding-inline: 0; }
+.animated-sidebar.is-collapsed .side-add { justify-content: center; padding-inline: 0; }
+.animated-sidebar.is-collapsed .side-status { justify-content: center; }
+
+/* Nome solicitado na entrada. */
+.name-prompt-backdrop { z-index: 240; }
+.name-prompt { width: min(470px,100%); padding: 26px; border: 1px solid rgba(169,155,224,.22); border-radius: 24px; background: radial-gradient(circle at 85% 0%,rgba(123,51,126,.15),transparent 42%), linear-gradient(180deg,#191020,#100B15); box-shadow: 0 45px 140px rgba(0,0,0,.64); }
+.name-prompt-icon { width: 46px; height: 46px; display: grid; place-items: center; margin-bottom: 16px; border-radius: 14px; color: #E8D7F1; background: linear-gradient(145deg,rgba(123,51,126,.28),rgba(102,103,171,.16)); border: 1px solid rgba(169,155,224,.16); }
+.name-prompt h2 { margin: 5px 0 8px; font-size: clamp(24px,5vw,32px); line-height: 1.1; letter-spacing: -.035em; }
+.name-prompt > p { margin: 0 0 18px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.name-prompt form { display: grid; gap: 12px; }
+.name-prompt .field { display: grid; gap: 6px; }
+.name-prompt .field > span { color: var(--muted); font-size: 11px; }
+.name-prompt input,
+.profile-name-form input { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 11px; padding: 0 12px; background: var(--bg-2); color: var(--text); font: inherit; }
+.name-prompt-submit { width: 100%; justify-content: center; }
+.profile-preference-panel { grid-column: 1/-1; }
+.profile-name-form { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 9px; margin-top: 15px; }
+.preference-message { display: block; margin-top: 8px; color: #BCA3D5; font-size: 11px; }
+.preference-checkbox { margin-top: 12px; }
+.field-help { display: block; margin-top: 5px; color: #8F8794; font-size: 10px; line-height: 1.45; }
+
+@media (max-width: 1100px) {
+  .payment-folder-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+
+@media (max-width: 820px) {
+  .payment-folder-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .purple-calendar-popover { position: fixed; left: 14px; right: 14px; top: auto; bottom: calc(92px + env(safe-area-inset-bottom)); width: auto; max-width: 390px; margin: 0 auto; }
+}
+
+@media (max-width: 620px) {
+  .payment-folder-grid { grid-template-columns: 1fr; }
+  .payment-folder-toggle { height: 174px; }
+  .file-upload-item { grid-template-columns: 36px minmax(0,1fr); }
+  .file-upload-status { grid-column: 2; justify-content: space-between; }
+  .payment-folder-empty { align-items: stretch; flex-direction: column; }
+  .profile-name-form { grid-template-columns: 1fr; }
+  .name-prompt { padding: 21px; border-radius: 20px; }
+}
+
+@media (max-width: 390px) {
+  .file-upload-dropzone { min-height: 154px; padding: 17px 12px; }
+  .purple-calendar-popover { left: 8px; right: 8px; padding: 7px; }
+  .purple-calendar-popover .rdp-root { --rdp-day_button-height: 35px; --rdp-day_button-width: 35px; }
+  .purple-calendar-day-button { min-width: 35px !important; min-height: 35px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .file-upload-progress.indeterminate i { animation: none; width: 100%; opacity: .55; }
+  .purple-date-trigger svg,
+  .purple-checkbox-box,
+  .file-upload-dropzone { transition: none; }
+}

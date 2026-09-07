@@ -1,31 +1,221 @@
-import React, { useState } from "react";
-import { CircleDollarSign, Loader2, LockKeyhole, Mail } from "lucide-react";
-import { signIn, signUp } from "../dataService.js";
+'use client'
+
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { gsap } from 'gsap'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { IconEye, IconEyeOff, IconKey, IconLoader2, IconLock, IconMail, IconUser } from '@tabler/icons-react'
+import { requestPasswordReset, signIn, signUp } from '../dataService.js'
+import BrandLogo from './ui/BrandLogo.jsx'
+import MotionInput from './ui/MotionInput.jsx'
+import PasswordStrength, { evaluatePassword } from './ui/PasswordStrength.jsx'
+import PurpleCheckbox from './ui/PurpleCheckbox.jsx'
+import ShimmeringText from './ui/ShimmeringText.jsx'
+import TextFlip from './ui/TextFlip.jsx'
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function friendlyAuthError(error) {
+  const message = String(error?.message || '')
+  if (/JWT issued at future/i.test(message)) {
+    return 'O horário deste dispositivo parece estar fora de sincronia. Ative data/hora automáticas, sincronize o relógio e tente entrar novamente.'
+  }
+  if (/Invalid login credentials/i.test(message)) return 'E-mail ou senha incorretos.'
+  if (/Email not confirmed/i.test(message)) return 'Confirme o e-mail de cadastro antes de entrar.'
+  if (/User already registered/i.test(message)) return 'Já existe uma conta com este e-mail. Tente entrar.'
+  return message || 'Não foi possível concluir esta ação.'
+}
 
 export default function AuthScreen({ onAuthenticated }) {
-  const [mode, setMode] = useState("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState('login')
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [terms, setTerms] = useState(false)
+  const [revealPassword, setRevealPassword] = useState(false)
+  const [touched, setTouched] = useState({})
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(false)
+  const visualRef = useRef(null)
+  const reduce = useReducedMotion() ?? false
+
+  useEffect(() => {
+    if (reduce || !visualRef.current) return undefined
+    const context = gsap.context(() => {
+      gsap.fromTo('[data-auth-reveal]', { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.9, stagger: 0.1, ease: 'power3.out' })
+      gsap.to('.auth-brand-coin', { y: -8, rotate: 2, duration: 2.8, repeat: -1, yoyo: true, ease: 'sine.inOut' })
+      gsap.to('.auth-grid-glow', { xPercent: 12, yPercent: -8, duration: 8, repeat: -1, yoyo: true, ease: 'sine.inOut' })
+    }, visualRef)
+    return () => context.revert()
+  }, [reduce])
+
+  useEffect(() => {
+    setTouched({})
+    setError('')
+    setMessage('')
+  }, [mode])
+
+  const passwordState = useMemo(() => evaluatePassword(password), [password])
+  const signupErrors = useMemo(() => {
+    const errors = {}
+    if (!name.trim()) errors.name = 'Informe como você quer ser chamada.'
+    if (!email.trim()) errors.email = 'Informe seu e-mail.'
+    else if (!EMAIL_PATTERN.test(email.trim())) errors.email = 'Digite um e-mail válido.'
+    if (!password) errors.password = 'Crie uma senha.'
+    else if (passwordState.score < passwordState.max || passwordState.guessable) errors.password = 'Use uma senha forte e complete os requisitos abaixo.'
+    if (!confirmPassword) errors.confirmPassword = 'Confirme sua senha.'
+    else if (confirmPassword !== password) errors.confirmPassword = 'As senhas não são iguais.'
+    if (!terms) errors.terms = 'Aceite os termos para criar a conta.'
+    return errors
+  }, [confirmPassword, email, name, password, passwordState])
+
+  const loginErrors = useMemo(() => {
+    const errors = {}
+    if (!email.trim()) errors.email = 'Informe seu e-mail.'
+    else if (!EMAIL_PATTERN.test(email.trim())) errors.email = 'Digite um e-mail válido.'
+    if (mode === 'login' && !password) errors.password = 'Informe sua senha.'
+    return errors
+  }, [email, mode, password])
+
+  const errors = mode === 'signup' ? signupErrors : loginErrors
+  const fieldError = (key) => touched[key] ? errors[key] : undefined
+  const fieldSuccess = (key, value) => Boolean(touched[key] && value && !errors[key])
+
+  function touch(key) { setTouched((current) => ({ ...current, [key]: true })) }
 
   async function submit(event) {
-    event.preventDefault();
-    setError(""); setMessage(""); setLoading(true);
+    event.preventDefault()
+    setError('')
+    setMessage('')
+
+    if (mode === 'signup') setTouched({ name: true, email: true, password: true, confirmPassword: true, terms: true })
+    else setTouched({ email: true, password: mode === 'login' })
+
+    if (Object.keys(errors).length) return
+
+    setLoading(true)
     try {
-      if (mode === "login") {
-        const session = await signIn(email.trim(), password);
-        onAuthenticated(session);
+      if (mode === 'login') {
+        const session = await signIn(email.trim(), password)
+        onAuthenticated(session)
+      } else if (mode === 'signup') {
+        const result = await signUp(email.trim(), password, name.trim())
+        if (result?.pendingConfirmation) {
+          setMessage('Conta criada. Confirme seu e-mail e depois entre no UaiConta.')
+          setMode('login')
+          setPassword('')
+          setConfirmPassword('')
+        } else onAuthenticated(result)
       } else {
-        const result = await signUp(email.trim(), password);
-        if (result?.pendingConfirmation) setMessage("Conta criada. Confirme seu e-mail e depois entre no UaiConta.");
-        else onAuthenticated(result);
+        await requestPasswordReset(email.trim())
+        setMessage('Enviamos um link de recuperação para seu e-mail, se a conta existir.')
       }
     } catch (err) {
-      setError(err?.message || "Não foi possível autenticar.");
-    } finally { setLoading(false); }
+      setError(friendlyAuthError(err))
+    } finally {
+      setLoading(false)
+    }
   }
 
-  return <main className="auth-page"><section className="auth-visual"><div className="brand auth-brand"><span className="brand-mark"><CircleDollarSign size={20}/></span><span><strong>UaiConta</strong><small>Finance OS</small></span></div><div className="auth-orb"><div className="orbit orbit-a"/><div className="orbit orbit-b"/><div className="spatial-core"/></div><div><span className="eyebrow">Finanças sem ruído</span><h1>Transforme seus lançamentos em decisões claras.</h1><p>Um painel pessoal para entender receitas, gastos, investimentos e o que ainda pode sobrar.</p></div></section><section className="auth-card"><div><span className="eyebrow">{mode==="login"?"Bem-vinda de volta":"Comece agora"}</span><h2>{mode==="login"?"Entrar no UaiConta":"Criar sua conta"}</h2><p>{mode==="login"?"Acesse seus dados financeiros protegidos pelo seu usuário.":"Use um e-mail válido e uma senha com pelo menos 8 caracteres."}</p></div><form onSubmit={submit}><label><span>E-mail</span><div className="input-icon"><Mail size={16}/><input type="email" value={email} onChange={(e)=>setEmail(e.target.value)} required autoComplete="email"/></div></label><label><span>Senha</span><div className="input-icon"><LockKeyhole size={16}/><input type="password" value={password} onChange={(e)=>setPassword(e.target.value)} required minLength={8} autoComplete={mode==="login"?"current-password":"new-password"}/></div></label>{error&&<div className="inline-alert">{error}</div>}{message&&<div className="inline-success">{message}</div>}<button className="primary-btn auth-submit" disabled={loading}>{loading&&<Loader2 size={17} className="spin"/>}{mode==="login"?"Entrar":"Criar conta"}</button></form><button className="auth-switch" onClick={()=>setMode(mode==="login"?"signup":"login")}>{mode==="login"?"Ainda não tem conta? Criar conta":"Já tem conta? Entrar"}</button></section></main>;
+  const isReset = mode === 'reset'
+  const title = mode === 'login' ? 'Entrar no UaiConta' : mode === 'signup' ? 'Criar sua conta' : 'Recuperar senha'
+
+  return (
+    <main className="auth-page auth-page-v5" ref={visualRef}>
+      <section className="auth-visual auth-visual-v5">
+        <div className="auth-grid-glow" aria-hidden="true" />
+        <div data-auth-reveal><BrandLogo /></div>
+        <div className="auth-hero-coin auth-brand-coin" aria-hidden="true">
+          <img src="/brand/uai-logo-384.png" alt="" />
+          <span className="auth-coin-orbit orbit-one" /><span className="auth-coin-orbit orbit-two" />
+        </div>
+        <div className="auth-hero-copy" data-auth-reveal>
+          <span className="eyebrow">Finanças sem ruído</span>
+          <h1><ShimmeringText text="Transforme seus lançamentos em decisões claras." /></h1>
+          <div className="auth-flip-line"><span>Entenda melhor suas</span><TextFlip words={['receitas', 'despesas', 'metas', 'previsões']} /></div>
+          <p>Organize o que aconteceu, o que ainda vai acontecer e os documentos que comprovam cada movimento.</p>
+        </div>
+        <div className="auth-proof-row" data-auth-reveal>
+          <span>Dados por usuário</span><span>Planejado x realizado</span><span>Documentos privados</span>
+        </div>
+      </section>
+
+      <section className="auth-card auth-card-v5" data-auth-reveal>
+        <div className="auth-mode-tabs" role="tablist" aria-label="Acesso ao UaiConta">
+          <button type="button" role="tab" aria-selected={mode === 'login'} className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Entrar</button>
+          <button type="button" role="tab" aria-selected={mode === 'signup'} className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>Criar conta</button>
+        </div>
+
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            className="auth-form-shell"
+            key={mode}
+            initial={reduce ? { opacity: 1 } : { opacity: 0, y: 10, filter: 'blur(6px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8, filter: 'blur(5px)' }}
+            transition={{ duration: reduce ? 0 : 0.28 }}
+          >
+            <div className="auth-card-heading">
+              <span className="eyebrow">{mode === 'login' ? 'Bem-vinda de volta' : mode === 'signup' ? 'Comece agora' : 'Acesso à conta'}</span>
+              <h2>{title}</h2>
+              <p>{isReset ? 'Informe seu e-mail para receber um link seguro de redefinição.' : mode === 'login' ? 'Entre e continue exatamente de onde parou.' : 'Crie sua conta com uma senha forte. Seus dados financeiros ficam separados por usuário.'}</p>
+            </div>
+
+            <form onSubmit={submit} noValidate>
+              {mode === 'signup' && (
+                <MotionInput label="Nome" value={name} onChange={setName} onBlur={() => touch('name')} error={fieldError('name')} success={fieldSuccess('name', name.trim())} reserveErrorLine autoComplete="name" placeholder="Como quer ser chamada?" leftIcon={<IconUser size={18} />} />
+              )}
+
+              <MotionInput label="E-mail" type="email" inputMode="email" value={email} onChange={setEmail} onBlur={() => touch('email')} error={fieldError('email')} success={fieldSuccess('email', email.trim())} reserveErrorLine autoComplete="email" placeholder="voce@exemplo.com" leftIcon={<IconMail size={18} />} />
+
+              {!isReset && (
+                <>
+                  <MotionInput
+                    label="Senha"
+                    type={revealPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={setPassword}
+                    onBlur={() => touch('password')}
+                    error={fieldError('password')}
+                    success={mode === 'signup' ? fieldSuccess('password', password) && passwordState.score === passwordState.max && !passwordState.guessable : fieldSuccess('password', password)}
+                    reserveErrorLine
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    placeholder={mode === 'signup' ? 'Crie uma senha forte' : 'Sua senha'}
+                    leftIcon={<IconLock size={18} />}
+                    rightIcon={<button type="button" className="auth-eye" aria-label={revealPassword ? 'Ocultar senha' : 'Mostrar senha'} onClick={() => setRevealPassword((current) => !current)}>{revealPassword ? <IconEyeOff size={18} /> : <IconEye size={18} />}</button>}
+                  />
+                  {mode === 'signup' && <PasswordStrength value={password} />}
+                </>
+              )}
+
+              {mode === 'signup' && (
+                <MotionInput label="Confirmar senha" type={revealPassword ? 'text' : 'password'} value={confirmPassword} onChange={setConfirmPassword} onBlur={() => touch('confirmPassword')} error={fieldError('confirmPassword')} success={fieldSuccess('confirmPassword', confirmPassword)} reserveErrorLine autoComplete="new-password" placeholder="Digite a mesma senha" leftIcon={<IconLock size={18} />} />
+              )}
+
+              {mode === 'signup' && (
+                <div className="auth-terms">
+                  <PurpleCheckbox checked={terms} onCheckedChange={(checked) => { setTerms(checked); touch('terms') }} label="Li e aceito os Termos e a Política de Privacidade" ariaLabel="Aceitar termos e política de privacidade" />
+                  {fieldError('terms') && <p className="auth-field-error" role="alert">{fieldError('terms')}</p>}
+                </div>
+              )}
+
+              {error && <div className="inline-alert auth-inline-message">{error}</div>}
+              {message && <div className="inline-success auth-inline-message">{message}</div>}
+
+              <motion.button type="submit" className="primary-btn auth-submit auth-submit-v5" disabled={loading} whileTap={reduce ? undefined : { scale: 0.985 }}>
+                {loading && <IconLoader2 size={18} className="spin" />}
+                {isReset ? <><IconKey size={17} /> Enviar link</> : mode === 'login' ? 'Entrar no meu painel' : 'Criar minha conta'}
+              </motion.button>
+            </form>
+
+            <div className="auth-links">
+              {mode === 'login' && <button type="button" className="auth-switch" onClick={() => setMode('reset')}>Esqueci minha senha</button>}
+              {mode === 'reset' && <button type="button" className="auth-switch" onClick={() => setMode('login')}>Voltar para entrar</button>}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </section>
+    </main>
+  )
 }

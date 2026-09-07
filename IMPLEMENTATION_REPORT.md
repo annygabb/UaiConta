@@ -1,59 +1,37 @@
-# Relatório de implementação — UaiConta 2.0
+# Relatório de implementação — UaiConta V4
 
-## Implementado nesta revisão
+## Escopo executado
 
-- Refatoração do `App.jsx` monolítico para páginas, componentes, regras financeiras, persistência e roteamento separados.
-- Navegação real com History API e rotas internas.
-- Movimentações, Análises e Mais funcionais.
-- Detalhes clicáveis de Receita, Gastos, Investimentos e Economia.
-- Período global com mês/ano dinâmicos.
-- Onboarding de renda com múltiplas fontes.
-- Domínios separados de receita, despesa, investimento e transferência.
-- Sobra, projeção, comprometimento de renda, gasto médio diário e insights calculados.
-- Gráfico de pizza por categoria com porcentagem.
-- Gráfico Receita × Gastos × Investimentos × Sobra.
-- Pix × cartão em barras por período.
-- Formulário de lançamento redesenhado para desktop/mobile.
-- Importador de PDF 100% local, sem Anthropic.
-- Upload múltiplo sem limite de quantidade definido na UI, com fila de processamento sequencial.
-- Revisão de lançamentos extraídos, confiança e sinalização de duplicidade.
-- PWA e efeitos 3D/CSS leves com reduced-motion.
-- Integração Supabase via REST/Auth quando configurada.
-- Schema PostgreSQL com RLS, índices e entidades para crescimento do produto.
-- Modo local para desenvolvimento sem credenciais externas.
-- CSP e headers de segurança para Vercel.
-- Unit tests e E2E Playwright preparados.
+- migração estrutural para React + TypeScript strict;
+- arquitetura feature-first;
+- React Router e navegação real;
+- Supabase JS, Auth, repositories, schema/migrations e Storage;
+- dinheiro em centavos inteiros;
+- métricas realizadas x previstas centralizadas;
+- contas, cartões, categorias, rendas, orçamentos e metas com CRUD inicial;
+- recorrências híbridas; fundação de parcelas/subcategorias ainda parcial;
+- dashboard/analytics com waterfall, radial financeiro, categorias e Pix x cartão;
+- PDF local sem Anthropic, múltiplos arquivos, fila e revisão;
+- notas/comprovantes com PDF, imagem, câmera, OCR open source, download e Storage privado; viewer avançado ainda pendente;
+- PWA, safe areas e adaptação mobile;
+- suíte unitária, baseline de segurança estática, E2E e axe;
+- CI, MIT, CONTRIBUTING, SECURITY e PENDENCIAS.
 
-## Validações executadas neste ambiente
+## Skills aplicadas
 
-- `npm test`: **8/8 testes unitários passando**.
-- Parse/transpilação de todos os arquivos JS/JSX com TypeScript compiler: **0 erros de sintaxe**.
-- Parse de `src/index.css` com parser CSS: **0 erros de sintaxe**.
-- Verificação de imports relativos: **0 caminhos locais ausentes**.
+A revisão de Supabase/Postgres segue as skills públicas oficiais `supabase` e `supabase-postgres-best-practices`: RLS em schemas expostos, policies com ownership, UPDATE com USING/WITH CHECK, ausência de service role no cliente, bucket privado e dependências pinadas.
 
-## Limitação do ambiente
+## Verificações locais possíveis
 
-A instalação de dependências pelo npm sofreu timeout de rede neste ambiente. Por isso não foi possível executar aqui:
+- parse/transpilação sintática de todos os arquivos TS/TSX: sem erro de sintaxe;
+- revisão estática de imports/arquitetura/schema;
+- `npm install` não concluiu porque o registry npm expirou por timeout neste ambiente.
 
-- `npm run build`;
-- Playwright E2E;
-- Lighthouse.
+Por isso, build/lint/typecheck/testes dependentes de pacotes serão executados no GitHub Actions. O workflow também gera `package-lock.json` como artefato para posterior commit.
 
-Os arquivos e scripts estão incluídos. Em uma máquina com acesso normal ao registry npm, rode:
+## Não declarado como concluído sem teste real
 
-```bash
-npm install
-npm run build
-npm test
-npx playwright install chromium
-npm run test:e2e
-```
-
-## Produção
-
-Para banco real e autenticação:
-
-1. executar `supabase/schema.sql` no Supabase;
-2. configurar `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`;
-3. fazer deploy;
-4. testar RLS com pelo menos dois usuários independentes.
+- RLS multiusuário contra um projeto Supabase real;
+- Core Web Vitals de um deploy real;
+- fluxo de câmera em dispositivo físico;
+- Edge Function `delete-account` está implementada; deploy e teste real no Supabase ainda precisam ser executados.

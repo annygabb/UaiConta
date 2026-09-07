@@ -1,78 +1,124 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { ArrowLeftRight, Banknote, CircleDollarSign, FileText, PiggyBank, ReceiptText, X } from "lucide-react";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, INVESTMENT_CATEGORIES, PAYMENT_METHODS, TRANSACTION_TYPES } from "../constants.js";
-import { currencyInput, isoDate, parseCurrencyInput, uid } from "../utils.js";
+import React, { useEffect, useMemo, useState } from 'react'
+import {
+  IconArrowsExchange,
+  IconCash,
+  IconCoin,
+  IconFileInvoice,
+  IconPigMoney,
+  IconReceipt,
+  IconX,
+} from '@tabler/icons-react'
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, INVESTMENT_CATEGORIES, PAYMENT_METHODS, TRANSACTION_TYPES } from '../constants.js'
+import { currencyInput, isoDate, parseCurrencyInput, uid } from '../utils.js'
+import SelectField from './ui/SelectField.jsx'
+import PurpleDatePicker from './ui/PurpleDatePicker.jsx'
+import PurpleCheckbox from './ui/PurpleCheckbox.jsx'
+import { entityRepository } from '../features/settings/entity.repository.ts'
+import { isSupabaseConfigured } from '../infrastructure/supabase/client.ts'
 
 const TYPE_META = {
-  despesa: { icon: ReceiptText, description: "Compra, conta ou gasto" },
-  receita: { icon: Banknote, description: "Salário ou entrada" },
-  investimento: { icon: PiggyBank, description: "Aporte financeiro" },
-  transferencia: { icon: ArrowLeftRight, description: "Entre suas contas" },
-};
+  despesa: { icon: IconReceipt, description: 'Compra, conta ou gasto' },
+  receita: { icon: IconCash, description: 'Salário ou entrada' },
+  investimento: { icon: IconPigMoney, description: 'Aporte financeiro' },
+  transferencia: { icon: IconArrowsExchange, description: 'Entre suas contas' },
+}
+
+const RECURRENCE_OPTIONS = [
+  { value: 'semanal', label: 'Semanal' },
+  { value: 'quinzenal', label: 'Quinzenal' },
+  { value: 'mensal', label: 'Mensal' },
+  { value: 'anual', label: 'Anual' },
+]
 
 function categoriesFor(type) {
-  if (type === "receita") return INCOME_CATEGORIES;
-  if (type === "investimento") return INVESTMENT_CATEGORIES;
-  if (type === "transferencia") return ["Transferência entre contas"];
-  return EXPENSE_CATEGORIES;
+  if (type === 'receita') return INCOME_CATEGORIES
+  if (type === 'investimento') return INVESTMENT_CATEGORIES
+  if (type === 'transferencia') return ['Transferência entre contas']
+  return EXPENSE_CATEGORIES
 }
 
 export default function TransactionForm({ initial, onCancel, onSave, onImportPdf }) {
-  const editing = Boolean(initial?.id && !initial?.__duplicate);
-  const [type, setType] = useState(initial?.type || "despesa");
-  const [amountText, setAmountText] = useState(initial?.amount ? currencyInput(initial.amount) : "");
-  const [description, setDescription] = useState(initial?.description || "");
-  const [category, setCategory] = useState(initial?.category || categoriesFor(initial?.type || "despesa")[0]);
-  const [paymentMethod, setPaymentMethod] = useState(initial?.paymentMethod || "Pix");
-  const [date, setDate] = useState(initial?.date || isoDate(new Date()));
-  const [isRecurring, setIsRecurring] = useState(Boolean(initial?.isRecurring));
-  const [notes, setNotes] = useState(initial?.notes || "");
-  const [saving, setSaving] = useState(false);
-  const amount = parseCurrencyInput(amountText);
-  const categories = useMemo(() => categoriesFor(type), [type]);
+  const editing = Boolean(initial?.id && !initial?.__duplicate && !String(initial?.id || '').startsWith('planned:'))
+  const [type, setType] = useState(initial?.type || 'despesa')
+  const [amountText, setAmountText] = useState(initial?.amount ? currencyInput(initial.amount) : '')
+  const [description, setDescription] = useState(initial?.description || '')
+  const [category, setCategory] = useState(initial?.category || categoriesFor(initial?.type || 'despesa')[0])
+  const [paymentMethod, setPaymentMethod] = useState(initial?.paymentMethod || 'Pix')
+  const [creditCardId, setCreditCardId] = useState(initial?.creditCardId || '')
+  const [cards, setCards] = useState([])
+  const [date, setDate] = useState(initial?.date || isoDate(new Date()))
+  const [isRecurring, setIsRecurring] = useState(Boolean(initial?.isRecurring))
+  const [frequency, setFrequency] = useState(initial?.frequency || 'mensal')
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState(initial?.recurrenceEndDate || '')
+  const [notes, setNotes] = useState(initial?.notes || '')
+  const [saving, setSaving] = useState(false)
+  const amount = parseCurrencyInput(amountText)
+  const categories = useMemo(() => categoriesFor(type), [type])
+  const isCardPayment = paymentMethod === 'Cartão de crédito' || paymentMethod === 'Cartão de débito'
 
   useEffect(() => {
-    if (!categories.includes(category)) setCategory(categories[0]);
-  }, [categories, category]);
+    if (!categories.includes(category)) setCategory(categories[0])
+  }, [categories, category])
 
-  const canSave = amount > 0 && amount <= 999999999 && description.trim().length > 0 && date;
-  const hasChanges = amountText || description || notes || initial;
+  useEffect(() => {
+    if (!isSupabaseConfigured || type === 'receita' || type === 'transferencia') return undefined
+    let active = true
+    entityRepository.list('credit_cards')
+      .then((rows) => { if (active) setCards(rows) })
+      .catch(() => {})
+    return () => { active = false }
+  }, [type])
+
+  useEffect(() => {
+    if (!isCardPayment && creditCardId) setCreditCardId('')
+  }, [isCardPayment, creditCardId])
+
+  const canSave = amount > 0 && amount <= 999999999 && description.trim().length > 0 && date
+  const hasChanges = amountText || description || notes || initial
 
   function requestCancel() {
     if (hasChanges && !editing && (amountText || description || notes)) {
-      const ok = window.confirm("Descartar esta movimentação?");
-      if (!ok) return;
+      const ok = window.confirm('Descartar esta movimentação?')
+      if (!ok) return
     }
-    onCancel();
+    onCancel()
   }
 
   function requestImportPdf() {
-    if ((amountText || description || notes) && !window.confirm("Abrir a importação por PDF e descartar os campos atuais?")) return;
-    onCancel();
-    onImportPdf?.();
+    if ((amountText || description || notes) && !window.confirm('Abrir a importação por PDF e descartar os campos atuais?')) return
+    onCancel()
+    onImportPdf?.()
   }
 
   async function submit() {
-    if (!canSave || saving) return;
-    setSaving(true);
+    if (!canSave || saving) return
+    setSaving(true)
     try {
+      const today = isoDate(new Date())
       await onSave({
         id: editing ? initial.id : uid(),
         type,
         amount,
+        amountCents: Math.round(amount * 100),
         description: description.trim(),
         category,
-        paymentMethod: type === "transferencia" ? "Transferência" : paymentMethod,
+        paymentMethod: type === 'transferencia' ? 'Transferência' : paymentMethod,
+        creditCardId: isCardPayment ? creditCardId || undefined : undefined,
         date,
+        status: initial?.status || (date > today ? 'planned' : 'completed'),
         isRecurring,
+        frequency: isRecurring ? frequency : undefined,
+        recurrenceEndDate: isRecurring ? recurrenceEndDate || undefined : undefined,
+        recurrenceId: initial?.recurrenceId,
+        occurrenceDate: initial?.occurrenceDate,
         notes: notes.trim(),
-        source: initial?.source || "manual",
-        sourceFile: initial?.sourceFile || "",
-        confidence: initial?.confidence || "alta",
+        source: initial?.source || 'manual',
+        sourceFile: initial?.sourceFile || '',
+        confidence: initial?.confidence || 'alta',
         __imported: Boolean(initial?.__imported),
-      });
+      })
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
   }
 
@@ -82,28 +128,28 @@ export default function TransactionForm({ initial, onCancel, onSave, onImportPdf
         <header className="sheet-header">
           <div>
             <span className="eyebrow">Movimentação</span>
-            <h2 id="transaction-title">{editing ? "Editar lançamento" : "Adicionar item"}</h2>
+            <h2 id="transaction-title">{editing ? 'Editar lançamento' : 'Adicionar item'}</h2>
           </div>
-          <button className="icon-btn" onClick={requestCancel} aria-label="Fechar"><X size={19} /></button>
+          <button className="icon-btn" onClick={requestCancel} aria-label="Fechar"><IconX size={19} /></button>
         </header>
 
         {!editing && onImportPdf && (
           <button type="button" className="pdf-shortcut" onClick={requestImportPdf}>
-            <span><FileText size={17} /></span>
+            <span><IconFileInvoice size={17} /></span>
             <div><strong>Adicionar por PDF</strong><small>Importe vários PDFs, revise e confirme os lançamentos.</small></div>
           </button>
         )}
 
         <div className="type-grid" aria-label="Tipo de movimentação">
           {TRANSACTION_TYPES.map(({ value, label }) => {
-            const Icon = TYPE_META[value].icon;
+            const Icon = TYPE_META[value].icon
             return (
-              <button key={value} type="button" className={type === value ? "type-option active" : "type-option"} onClick={() => setType(value)}>
+              <button key={value} type="button" className={type === value ? 'type-option active' : 'type-option'} onClick={() => setType(value)}>
                 <span><Icon size={18} /></span>
                 <strong>{label}</strong>
                 <small>{TYPE_META[value].description}</small>
               </button>
-            );
+            )
           })}
         </div>
 
@@ -113,7 +159,7 @@ export default function TransactionForm({ initial, onCancel, onSave, onImportPdf
             <span>R$</span>
             <input
               id="tx-amount"
-              inputMode="numeric"
+              inputMode="decimal"
               autoFocus
               value={amountText}
               onChange={(event) => setAmountText(currencyInput(parseCurrencyInput(event.target.value)))}
@@ -127,36 +173,61 @@ export default function TransactionForm({ initial, onCancel, onSave, onImportPdf
 
         <div className="form-grid">
           <label className="field field-span-2">
-            <span>{type === "receita" ? "Origem da receita" : type === "investimento" ? "Descrição do aporte" : "Descrição"}</span>
-            <input value={description} onChange={(event) => setDescription(event.target.value)} maxLength={140} placeholder={type === "receita" ? "Ex: Salário NTT DATA" : "Ex: Supermercado da semana"} />
+            <span>{type === 'receita' ? 'Origem da receita' : type === 'investimento' ? 'Descrição do aporte' : 'Descrição'}</span>
+            <input value={description} onChange={(event) => setDescription(event.target.value)} maxLength={140} placeholder={type === 'receita' ? 'Ex: Salário NTT DATA' : 'Ex: Supermercado da semana'} />
           </label>
 
           <label className="field">
             <span>Categoria</span>
-            <select value={category} onChange={(event) => setCategory(event.target.value)}>
-              {categories.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
+            <SelectField value={category} onChange={setCategory} options={categories} ariaLabel="Categoria" />
           </label>
 
-          {type !== "transferencia" && (
+          {type !== 'transferencia' && (
             <label className="field">
-              <span>{type === "receita" ? "Forma de recebimento" : "Forma de pagamento"}</span>
-              <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
-                {PAYMENT_METHODS.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
+              <span>{type === 'receita' ? 'Forma de recebimento' : 'Forma de pagamento'}</span>
+              <SelectField value={paymentMethod} onChange={setPaymentMethod} options={PAYMENT_METHODS} ariaLabel="Forma de pagamento" />
+            </label>
+          )}
+
+          {type === 'despesa' && isCardPayment && (
+            <label className="field field-span-2">
+              <span>Qual cartão? <em>opcional para movimentações antigas</em></span>
+              <SelectField
+                value={creditCardId}
+                onChange={setCreditCardId}
+                options={cards.map((card) => ({ value: card.id, label: `${card.name}${card.bank ? ` · ${card.bank}` : ''}` }))}
+                placeholder={cards.length ? 'Selecione o cartão' : 'Cadastre um cartão em Mais > Cartões'}
+                ariaLabel="Cartão usado"
+              />
+              {!cards.length && <small className="field-help">Cadastre seus cartões para o painel separar Crédito e Débito por cartão.</small>}
             </label>
           )}
 
           <label className="field">
             <span>Data</span>
-            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
+            <PurpleDatePicker value={date} onChange={setDate} ariaLabel="Data da movimentação" />
           </label>
 
-          <label className="toggle-field">
-            <input type="checkbox" checked={isRecurring} onChange={(event) => setIsRecurring(event.target.checked)} />
-            <span className="toggle-ui" aria-hidden="true" />
-            <span><strong>Recorrente</strong><small>Repete mensalmente</small></span>
-          </label>
+          <div className="toggle-field purple-toggle-field">
+            <PurpleCheckbox
+              checked={isRecurring}
+              onCheckedChange={setIsRecurring}
+              label="Recorrente"
+              description="Projeta ocorrências futuras como previstas."
+              ariaLabel="Marcar movimentação como recorrente"
+            />
+          </div>
+
+          {isRecurring && <>
+            <label className="field">
+              <span>Frequência</span>
+              <SelectField value={frequency} onChange={setFrequency} options={RECURRENCE_OPTIONS} ariaLabel="Frequência da recorrência" />
+            </label>
+            <label className="field">
+              <span>Data final <em>opcional</em></span>
+              <PurpleDatePicker value={recurrenceEndDate} onChange={setRecurrenceEndDate} min={date} placeholder="Sem data final" ariaLabel="Data final da recorrência" />
+            </label>
+          </>}
 
           <label className="field field-span-2">
             <span>Observação <em>opcional</em></span>
@@ -167,10 +238,10 @@ export default function TransactionForm({ initial, onCancel, onSave, onImportPdf
         <footer className="sheet-footer">
           <button type="button" className="ghost-btn" onClick={requestCancel}>Cancelar</button>
           <button type="button" className="primary-btn" disabled={!canSave || saving} onClick={submit}>
-            <CircleDollarSign size={17} /> {saving ? "Salvando..." : editing ? "Salvar alterações" : "Adicionar movimentação"}
+            <IconCoin size={17} /> {saving ? 'Salvando...' : editing ? 'Salvar alterações' : 'Adicionar movimentação'}
           </button>
         </footer>
       </div>
     </div>
-  );
+  )
 }
