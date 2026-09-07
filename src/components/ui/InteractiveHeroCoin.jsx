@@ -1,92 +1,57 @@
 'use client'
 
-import React, { useRef, useState } from 'react'
-import { useReducedMotion } from 'motion/react'
+import React, { useId } from 'react'
+import { motion, useReducedMotion } from 'motion/react'
 
-const INITIAL_ROTATION = { x: -8, y: -18 }
+const PATH = 'M8 178 C58 170 82 196 126 158 C166 124 210 150 248 112 C292 68 330 104 374 74 C420 44 454 70 498 40 C532 17 566 29 592 14'
+const AREA = `${PATH} L592 218 L8 218 Z`
 
 export default function InteractiveHeroCoin() {
   const reduced = useReducedMotion() ?? false
-  const [rotation, setRotation] = useState(INITIAL_ROTATION)
-  const [dragging, setDragging] = useState(false)
-  const dragRef = useRef(null)
-
-  const pointerDown = (event) => {
-    if (reduced) return
-    event.currentTarget.setPointerCapture?.(event.pointerId)
-    dragRef.current = { x: event.clientX, y: event.clientY, rotation }
-    setDragging(true)
-  }
-
-  const pointerMove = (event) => {
-    const start = dragRef.current
-    if (!start || !dragging) return
-    const dx = event.clientX - start.x
-    const dy = event.clientY - start.y
-    setRotation({
-      y: start.rotation.y + dx * 0.72,
-      x: Math.max(-34, Math.min(28, start.rotation.x - dy * 0.42)),
-    })
-  }
-
-  const pointerUp = (event) => {
-    event.currentTarget.releasePointerCapture?.(event.pointerId)
-    dragRef.current = null
-    setDragging(false)
-  }
-
-  const keyDown = (event) => {
-    const step = event.shiftKey ? 24 : 12
-    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home'].includes(event.key)) return
-    event.preventDefault()
-    if (event.key === 'Home') {
-      setRotation(INITIAL_ROTATION)
-      return
-    }
-    setRotation((current) => ({
-      x: event.key === 'ArrowUp'
-        ? Math.max(-34, current.x - step)
-        : event.key === 'ArrowDown'
-          ? Math.min(28, current.x + step)
-          : current.x,
-      y: event.key === 'ArrowLeft'
-        ? current.y - step
-        : event.key === 'ArrowRight'
-          ? current.y + step
-          : current.y,
-    }))
-  }
+  const uid = useId().replace(/:/g, '')
+  const line = `heroLine-${uid}`
+  const area = `heroArea-${uid}`
 
   return (
-    <button
-      type="button"
-      className={`auth-interactive-coin ${dragging ? 'is-dragging' : ''} ${reduced ? 'reduce-motion' : ''}`}
-      aria-label="Moeda 3D UaiConta. Arraste para girar ou use as setas do teclado. Pressione Home para centralizar."
-      title="Arraste ou use as setas para girar"
-      onPointerDown={pointerDown}
-      onPointerMove={pointerMove}
-      onPointerUp={pointerUp}
-      onPointerCancel={pointerUp}
-      onKeyDown={keyDown}
-      style={{ '--coin-rx': `${rotation.x}deg`, '--coin-ry': `${rotation.y}deg` }}
-    >
-      <span className="auth-coin-scene" aria-hidden="true">
-        <span className="auth-vector-coin">
-          <span className="auth-vector-face auth-vector-front"><img src="/brand/uai-mark.svg" alt="" /></span>
-          <span className="auth-vector-face auth-vector-back"><span>UAI</span></span>
-          <span className="auth-vector-rim" />
-        </span>
-        <svg className="auth-cowboy-hat" viewBox="0 0 180 90" focusable="false">
-          <defs>
-            <linearGradient id="hatFill" x1="0" x2="1" y1="0" y2="1"><stop stopColor="#8b4e2e"/><stop offset=".52" stopColor="#4f281b"/><stop offset="1" stopColor="#2b1510"/></linearGradient>
-          </defs>
-          <path d="M42 48c8-7 17-10 22-31 4-14 14-17 27-12 11 4 14 12 16 25 12-7 24-8 34-3 8 4 12 10 12 16-19 12-42 16-70 13-18-2-32-4-41-8Z" fill="url(#hatFill)" stroke="#b8794d" strokeWidth="3"/>
-          <path d="M24 52c24 14 55 19 91 14 21-3 37-9 46-17 6 8 3 15-9 21-23 12-56 16-91 10-25-4-40-12-43-20-1-3 1-6 6-8Z" fill="#5c2e1e" stroke="#a96942" strokeWidth="3"/>
-          <path d="M61 42c17 5 33 6 49 2" fill="none" stroke="#1e1110" strokeWidth="7" strokeLinecap="round"/>
-        </svg>
-        <span className="auth-coin-shadow" />
-      </span>
-      <span className="auth-coin-hint">Arraste ou use as setas para girar</span>
-    </button>
+    <div className="auth-hero-chart" aria-hidden="true">
+      <svg viewBox="0 0 600 220" preserveAspectRatio="none" focusable="false">
+        <defs>
+          <linearGradient id={line} x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stopColor="#6667AB" stopOpacity="0" />
+            <stop offset="28%" stopColor="#9e67c3" stopOpacity=".72" />
+            <stop offset="68%" stopColor="#efd6fb" stopOpacity="1" />
+            <stop offset="100%" stopColor="#7B337E" stopOpacity=".06" />
+          </linearGradient>
+          <linearGradient id={area} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#a767c6" stopOpacity=".16" />
+            <stop offset="100%" stopColor="#420D4B" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={AREA} fill={`url(#${area})`} />
+        <motion.path
+          d={PATH}
+          fill="none"
+          stroke={`url(#${line})`}
+          strokeWidth="10"
+          strokeLinecap="round"
+          opacity=".12"
+          initial={false}
+          animate={reduced ? { opacity: .12 } : { opacity: [.03, .18, .03] }}
+          transition={reduced ? { duration: 0 } : { duration: 5.2, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <motion.path
+          d={PATH}
+          fill="none"
+          stroke={`url(#${line})`}
+          strokeWidth="2.6"
+          strokeLinecap="round"
+          pathLength={1}
+          initial={reduced ? { pathLength: 1, opacity: .8 } : { pathLength: 0, opacity: 0 }}
+          animate={reduced ? { pathLength: 1, opacity: .8 } : { pathLength: [0, 1, 1], opacity: [0, 1, 0] }}
+          transition={reduced ? { duration: 0 } : { duration: 5.8, repeat: Infinity, times: [0, .66, 1], ease: 'easeInOut', repeatDelay: .45 }}
+        />
+      </svg>
+      <div className="auth-hero-chart-glow" />
+    </div>
   )
 }

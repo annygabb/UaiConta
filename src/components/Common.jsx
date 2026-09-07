@@ -37,6 +37,13 @@ export function MetricCard({ label, value, delta = null, icon: Icon, accent = C.
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
+function centerWheelItem(ref) {
+  const node = ref.current
+  const column = node?.parentElement
+  if (!node || !column) return
+  column.scrollTop = Math.max(0, node.offsetTop - ((column.clientHeight - node.offsetHeight) / 2))
+}
+
 export function PeriodSelector({ value, onChange, compact = false }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
@@ -62,8 +69,8 @@ export function PeriodSelector({ value, onChange, compact = false }) {
     document.addEventListener('pointerdown', pointer)
     document.addEventListener('keydown', keyboard)
     requestAnimationFrame(() => {
-      selectedMonthRef.current?.scrollIntoView({ block: 'center' })
-      selectedYearRef.current?.scrollIntoView({ block: 'center' })
+      centerWheelItem(selectedMonthRef)
+      centerWheelItem(selectedYearRef)
     })
     return () => { document.removeEventListener('pointerdown', pointer); document.removeEventListener('keydown', keyboard) }
   }, [open, month, year])

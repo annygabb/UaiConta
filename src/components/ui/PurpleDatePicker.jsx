@@ -36,6 +36,13 @@ function withinRange(date, minDate, maxDate) {
   return true
 }
 
+function centerWheelItem(ref) {
+  const node = ref.current
+  const column = node?.parentElement
+  if (!node || !column) return
+  column.scrollTop = Math.max(0, node.offsetTop - ((column.clientHeight - node.offsetHeight) / 2))
+}
+
 export default function PurpleDatePicker({ value, onChange, min, max, placeholder = 'Selecionar data', ariaLabel = 'Selecionar data', disabled = false }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
@@ -70,16 +77,15 @@ export default function PurpleDatePicker({ value, onChange, min, max, placeholde
     setDraftDay(source.getDate())
     setDraftMonth(source.getMonth() + 1)
     setDraftYear(source.getFullYear())
-    const onPointerDown = (event) => { if (!rootRef.current?.contains(event.target)) setOpen(false) }
+    const onPointerDown = (event) => { if (!rootRef.current?.contains(event.target) && !event.target.closest?.('.date-wheel-popover')) setOpen(false) }
     const onKeyDown = (event) => { if (event.key === 'Escape') setOpen(false) }
     document.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
     const timer = window.setTimeout(() => {
-      const behavior = reduce ? 'auto' : 'smooth'
-      dayRef.current?.scrollIntoView({ block: 'center', behavior })
-      monthRef.current?.scrollIntoView({ block: 'center', behavior })
-      yearRef.current?.scrollIntoView({ block: 'center', behavior })
-    }, 30)
+      centerWheelItem(dayRef)
+      centerWheelItem(monthRef)
+      centerWheelItem(yearRef)
+    }, reduce ? 0 : 30)
     return () => {
       window.clearTimeout(timer)
       document.removeEventListener('pointerdown', onPointerDown)
@@ -108,7 +114,7 @@ export default function PurpleDatePicker({ value, onChange, min, max, placeholde
   return (
     <div className="purple-date-picker purple-date-picker-v6" ref={rootRef}>
       <button type="button" className="purple-date-trigger" aria-label={ariaLabel} aria-expanded={open} disabled={disabled} onClick={() => setOpen((current) => !current)}>
-        <span><IconCalendar size={18} stroke={1.8} className="purple-date-icon" /> {dateLabel(value, placeholder)}</span>
+        <span className="purple-date-trigger-main"><IconCalendar size={18} stroke={1.8} className="purple-date-icon" /><span>{dateLabel(value, placeholder)}</span></span>
         <IconChevronDown size={16} className={open ? 'rotate-180' : ''} />
       </button>
       {open && (

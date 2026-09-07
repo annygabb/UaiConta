@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { IconCheck, IconChevronDown, IconCopy, IconFileInvoice, IconPencil, IconPlayerSkipForward, IconSearch, IconTrash } from '@tabler/icons-react'
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, INVESTMENT_CATEGORIES, PAYMENT_METHODS } from '../constants.js'
 import { filterTransactions } from '../finance.js'
@@ -17,11 +18,83 @@ const STATUS_OPTIONS = [
 const isVirtual = (tx) => String(tx.id || '').startsWith('planned:')
 
 function StableFilterSelect({ value, onChange, options, ariaLabel }) {
-  return <span className="stable-filter-select">
-    <select value={value} onChange={(event) => onChange(event.target.value)} aria-label={ariaLabel}>
-      {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-    </select>
-    <IconChevronDown size={16} aria-hidden="true" />
+  const [open, setOpen] = useState(false)
+  const [style, setStyle] = useState({})
+  const triggerRef = useRef(null)
+  const panelRef = useRef(null)
+  const label = options.find((option) => option.value === value)?.label || options[0]?.label || ''
+  const listId = `filter-${ariaLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+
+  const position = () => {
+    const rect = triggerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const width = Math.max(210, Math.min(rect.width, window.innerWidth - 24))
+    const left = Math.min(Math.max(12, rect.left), Math.max(12, window.innerWidth - width - 12))
+    const maxHeight = Math.min(310, window.innerHeight - 24)
+    const preferredTop = rect.bottom + 8
+    const openAbove = preferredTop + maxHeight > window.innerHeight - 12 && rect.top > maxHeight
+    setStyle({
+      position: 'fixed',
+      width: `${width}px`,
+      left: `${left}px`,
+      top: openAbove ? 'auto' : `${preferredTop}px`,
+      bottom: openAbove ? `${window.innerHeight - rect.top + 8}px` : 'auto',
+      maxHeight: `${maxHeight}px`,
+    })
+  }
+
+  useEffect(() => {
+    if (!open) return undefined
+    position()
+    const pointer = (event) => {
+      if (triggerRef.current?.contains(event.target) || panelRef.current?.contains(event.target)) return
+      setOpen(false)
+    }
+    const keyboard = (event) => { if (event.key === 'Escape') setOpen(false) }
+    const closeOnViewportChange = () => setOpen(false)
+    document.addEventListener('pointerdown', pointer)
+    document.addEventListener('keydown', keyboard)
+    window.addEventListener('resize', closeOnViewportChange)
+    window.addEventListener('scroll', closeOnViewportChange, true)
+    return () => {
+      document.removeEventListener('pointerdown', pointer)
+      document.removeEventListener('keydown', keyboard)
+      window.removeEventListener('resize', closeOnViewportChange)
+      window.removeEventListener('scroll', closeOnViewportChange, true)
+    }
+  }, [open])
+
+  return <span className="stable-filter-select stable-filter-select-v8">
+    <button
+      ref={triggerRef}
+      type="button"
+      className="stable-filter-trigger"
+      aria-label={ariaLabel}
+      aria-expanded={open}
+      aria-controls={listId}
+      aria-haspopup="listbox"
+      onClick={() => setOpen((current) => !current)}
+    >
+      <span>{label}</span><IconChevronDown size={16} aria-hidden="true" />
+    </button>
+    {open && createPortal(
+      <div ref={panelRef} id={listId} className="stable-filter-menu" role="listbox" aria-label={ariaLabel} style={style}>
+        {options.map((option) => {
+          const active = option.value === value
+          return <button
+            type="button"
+            role="option"
+            aria-selected={active}
+            className={active ? 'active' : ''}
+            key={option.value}
+            onClick={() => { onChange(option.value); setOpen(false); requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true })) }}
+          >
+            <span>{option.label}</span>{active && <IconCheck size={15} aria-hidden="true" />}
+          </button>
+        })}
+      </div>,
+      document.body,
+    )}
   </span>
 }
 
@@ -34,11 +107,11 @@ export default function TransactionsPage({ transactions, period, onEdit, onDupli
 
   const renderStatus = (tx) => tx.status === 'planned' ? <Badge tone="warning">previsto</Badge> : tx.status === 'cancelled' ? <Badge tone="neutral">cancelado</Badge> : <Badge tone="success">realizado</Badge>
 
-  return <div className="page-stack transactions-page-v7">
+  return <div className="page-stack transactions-page-v8">
     <div className="page-intro"><div><span className="eyebrow">Histórico completo</span><h1>Movimentações</h1><p>Realizado e previsto no mesmo lugar, sem confundir projeção com pagamento concluído.</p></div><button className="primary-btn" onClick={onAdd}>Adicionar movimentação</button></div>
-    <Panel className="filters-panel filters-panel-v7">
+    <Panel className="filters-panel filters-panel-v8">
       <div className="filter-search"><IconSearch size={16}/><input placeholder="Buscar descrição, categoria ou pagamento" value={filters.search} onChange={(e)=>patch('search',e.target.value)}/></div>
-      <div className="filters-grid filters-grid-v7">
+      <div className="filters-grid filters-grid-v8">
         <div className="filter-field"><span>Período</span><PeriodSelector compact value={filters.period} onChange={(value)=>patch('period',value)}/></div>
         <label><span>Tipo</span><StableFilterSelect value={filters.type} onChange={(value)=>patch('type',value)} options={TYPE_OPTIONS} ariaLabel="Filtrar por tipo"/></label>
         <label><span>Status</span><StableFilterSelect value={filters.status} onChange={(value)=>patch('status',value)} options={STATUS_OPTIONS} ariaLabel="Filtrar por status"/></label>
