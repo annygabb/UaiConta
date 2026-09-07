@@ -40,14 +40,18 @@ import RecurrencesPage from './pages/settings/RecurrencesPage.jsx'
 import BudgetsPage from './pages/settings/BudgetsPage.jsx'
 import GoalsPage from './pages/settings/GoalsPage.jsx'
 import ReceiptsPage from './pages/settings/ReceiptsPage.jsx'
-import PreferencesPage from './pages/settings/PreferencesPage.jsx'
 import DataPrivacyPage from './pages/settings/DataPrivacyPage.jsx'
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx'
+import TermsPrivacyPage from './pages/TermsPrivacyPage.jsx'
 import { recurrenceRepository } from './features/recurrences/recurrence.repository.ts'
 import { projectRecurrence, recurrenceOccurrenceKey } from './features/recurrences/recurrence.ts'
 import { profileRepository } from './features/profile/profile.repository.ts'
 
 const nameConfirmationKey = (scope) => `uaiconta-name-confirmed-v1:${scope}`
+const isClockSkewMessage = (message) => /JWT issued at future|issued in the future|not valid yet/i.test(String(message || ''))
+const userError = (error, fallback) => isClockSkewMessage(error?.message)
+  ? 'Sua sessão precisa ser renovada por um problema de sincronização. Entre novamente.'
+  : (error?.message || fallback)
 
 export default function UaiConta() {
   const location = useLocation()
@@ -73,7 +77,7 @@ export default function UaiConta() {
     let active = true
     initializeAuth()
       .then((nextSession) => { if (active) setSession(nextSession) })
-      .catch((err) => { if (active) setError(err?.message || 'Não foi possível restaurar sua sessão.') })
+      .catch((err) => { if (active) setError(userError(err, 'Não foi possível restaurar sua sessão.')) })
       .finally(() => { if (active) setAuthReady(true) })
     const unsubscribe = onAuthChanged((nextSession) => { if (active) setSession(nextSession) })
     return () => { active = false; unsubscribe?.() }
@@ -94,11 +98,15 @@ export default function UaiConta() {
         if (isSupabaseConfigured && session?.user?.id && !isMigrationDone(session.user.id)) {
           const localRows = getLocalMigrationRows()
           if (localRows.length) {
-            const migrate = window.confirm(`Encontramos ${localRows.length} movimentações antigas neste navegador. Deseja copiá-las para sua conta agora? O backup local será preservado.`)
-            if (migrate) {
+            try {
               finalRows = await saveManyTransactions(localRows, rows)
               markMigrationDone(session.user.id)
+              if (active) setToast({ message: `${localRows.length} movimentações antigas foram sincronizadas automaticamente. Seu backup local foi preservado.`, type: 'success' })
+            } catch (migrationError) {
+              if (active) setToast({ message: userError(migrationError, 'Não foi possível sincronizar o backup antigo agora. Ele continua preservado neste navegador.'), type: 'error' })
             }
+          } else {
+            markMigrationDone(session.user.id)
           }
         }
         if (!active) return
@@ -106,7 +114,17 @@ export default function UaiConta() {
         const hasIncome = finalRows.some((row) => row.type === 'receita')
         setShowOnboarding(!isOnboarded(session?.user?.id || 'demo') && !hasIncome)
       })
-      .catch((err) => active && setError(err?.message || 'Falha ao carregar dados.'))
+      .catch(async (err) => {
+        if (!active) return
+        if (isClockSkewMessage(err?.message)) {
+          await signOut().catch(() => undefined)
+          if (!active) return
+          setSession(null)
+          setError('Sua sessão foi renovada porque estava fora de sincronia. Entre novamente para continuar.')
+          return
+        }
+        setError(userError(err, 'Falha ao carregar dados.'))
+      })
       .finally(() => active && setLoading(false))
     return () => { active = false }
   }, [session, authReady])
@@ -130,7 +148,7 @@ export default function UaiConta() {
       })
       .catch((err) => {
         if (!active) return
-        setError(err?.message || 'Não foi possível carregar seu perfil.')
+        setError(userError(err, 'Não foi possível carregar seu perfil.'))
         setNamePromptOpen(true)
       })
 
@@ -153,7 +171,7 @@ export default function UaiConta() {
     let active = true
     const reloadRules = () => recurrenceRepository.list()
       .then((rows) => { if (active) setRecurrenceRules(rows) })
-      .catch((err) => { if (active) setError(err?.message || 'Não foi possível carregar recorrências.') })
+      .catch((err) => { if (active) setError(userError(err, 'Não foi possível carregar recorrências.')) })
     reloadRules()
     const onDataChanged = (event) => {
       if (event?.detail?.table === 'recurrence_rules') reloadRules()
@@ -164,7 +182,7 @@ export default function UaiConta() {
 
   useEffect(() => {
     if (!toast) return undefined
-    const timer = setTimeout(() => setToast(null), 3200)
+    const timer = setTimeout(() => setToast(null), 4200)
     return () => clearTimeout(timer)
   }, [toast])
 
@@ -202,7 +220,7 @@ export default function UaiConta() {
       setFormState(null)
       notify(tx.__duplicate ? 'Movimentação duplicada.' : 'Movimentação salva.')
     } catch (err) {
-      notify(err?.message || 'Não foi possível salvar.', 'error')
+      notify(userError(err, 'Não foi possível salvar.'), 'error')
       throw err
     }
   }
@@ -215,7 +233,7 @@ export default function UaiConta() {
       const next = await saveTransaction({ ...base, id: undefined, status, source: 'recorrencia', isRecurring: true }, transactions)
       setTransactions(next)
       notify(status === 'completed' ? 'Ocorrência confirmada como realizada.' : 'Ocorrência ignorada neste período.')
-    } catch (err) { notify(err?.message || 'Não foi possível atualizar a ocorrência.', 'error') }
+    } catch (err) { notify(userError(err, 'Não foi possível atualizar a ocorrência.'), 'error') }
   }
 
   async function handleDelete(id) {
@@ -224,7 +242,7 @@ export default function UaiConta() {
       const next = await deleteTransaction(id, transactions)
       setTransactions(next)
       notify('Movimentação excluída.')
-    } catch (err) { notify(err?.message || 'Não foi possível excluir.', 'error') }
+    } catch (err) { notify(userError(err, 'Não foi possível excluir.'), 'error') }
   }
 
   function handleDuplicate(tx) {
@@ -237,7 +255,7 @@ export default function UaiConta() {
       setTransactions(next)
       notify(`${rows.length} movimentações importadas.`)
     } catch (err) {
-      notify(err?.message || 'Não foi possível importar os lançamentos.', 'error')
+      notify(userError(err, 'Não foi possível importar os lançamentos.'), 'error')
       throw err
     }
   }
@@ -256,7 +274,7 @@ export default function UaiConta() {
       markOnboarded(session?.user?.id || 'demo')
       setShowOnboarding(false)
       notify('Renda cadastrada. Seu painel já foi recalculado.')
-    } catch (err) { notify(err?.message || 'Não foi possível salvar sua renda.', 'error') }
+    } catch (err) { notify(userError(err, 'Não foi possível salvar sua renda.'), 'error') }
   }
 
   function skipOnboarding() {
@@ -274,7 +292,7 @@ export default function UaiConta() {
       window.dispatchEvent(new CustomEvent('uaiconta:profile-changed', { detail: { displayName: savedName } }))
       notify(`Bem-vinda, ${savedName.split(' ')[0]}.`)
     } catch (err) {
-      notify(err?.message || 'Não foi possível salvar seu nome.', 'error')
+      notify(userError(err, 'Não foi possível salvar seu nome.'), 'error')
       throw err
     }
   }
@@ -290,8 +308,8 @@ export default function UaiConta() {
     }
   }
 
+  if (location.pathname === ROUTES.legal) return <TermsPrivacyPage />
   if (!authReady) return <div className="app-loader"><div className="loader-orb"/><IconLoader2 size={22} className="spin"/><span>Verificando sua sessão...</span></div>
-
   if (location.pathname === ROUTES.resetPassword) return <ResetPasswordPage />
 
   if (dataMode === 'unavailable') {
@@ -299,7 +317,6 @@ export default function UaiConta() {
   }
 
   if (isSupabaseConfigured && !session?.access_token) return <AuthScreen onAuthenticated={setSession} />
-
   if (loading) return <div className="app-loader"><div className="loader-orb"/><IconLoader2 size={22} className="spin"/><span>Preparando seu painel...</span></div>
 
   return (
@@ -331,10 +348,10 @@ export default function UaiConta() {
             <Route path={ROUTES.budgets} element={<BudgetsPage />} />
             <Route path={ROUTES.goals} element={<GoalsPage />} />
             <Route path={ROUTES.receipts} element={<ReceiptsPage />} />
-            <Route path={ROUTES.preferences} element={<PreferencesPage />} />
-            <Route path={ROUTES.privacy} element={<DataPrivacyPage mode="privacy" />} />
+            <Route path={ROUTES.preferences} element={<Navigate to={ROUTES.more} replace />} />
+            <Route path={ROUTES.privacy} element={<Navigate to={`${ROUTES.legal}#privacidade`} replace />} />
             <Route path={ROUTES.data} element={<DataPrivacyPage mode="data" onAccountDeleted={() => { setSession(null); setTransactions([]) }} />} />
-            <Route path={ROUTES.security} element={<DataPrivacyPage mode="security" />} />
+            <Route path={ROUTES.security} element={<Navigate to={ROUTES.more} replace />} />
             <Route path="*" element={<Navigate to={ROUTES.dashboard} replace />} />
           </Routes>
         </main>
