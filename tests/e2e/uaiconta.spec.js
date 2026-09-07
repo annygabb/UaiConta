@@ -20,6 +20,11 @@ async function resetDemo(page) {
   await enterDemo(page)
 }
 
+async function openTransactionForm(page) {
+  await page.getByRole('button', { name: 'Adicionar', exact: true }).first().click()
+  await expect(page.getByRole('dialog', { name: /Movimentação/i })).toBeVisible()
+}
+
 test.beforeEach(async ({ page }) => resetDemo(page))
 
 test('navegação principal abre Movimentações, Análises e Mais', async ({ page }) => {
@@ -37,7 +42,7 @@ test('navegação principal abre Movimentações, Análises e Mais', async ({ pa
 })
 
 test('cria uma receita e atualiza card e detalhes', async ({ page }) => {
-  await page.getByRole('button', { name: 'Adicionar movimentação' }).first().click()
+  await openTransactionForm(page)
   await page.getByRole('button', { name: 'Receita', exact: true }).click()
   await page.getByLabel('Valor').fill('500000')
   await page.getByPlaceholder('Ex: Salário NTT DATA').fill('Salário teste')
@@ -50,7 +55,7 @@ test('cria uma receita e atualiza card e detalhes', async ({ page }) => {
 })
 
 test('adiciona uma despesa e mantém os gráficos no mesmo período', async ({ page }) => {
-  await page.getByRole('button', { name: 'Adicionar movimentação' }).first().click()
+  await openTransactionForm(page)
   await page.getByLabel('Valor').fill('12590')
   await page.getByPlaceholder('Ex: Supermercado da semana').fill('Supermercado teste')
   await page.getByRole('button', { name: 'Adicionar movimentação' }).last().click()
