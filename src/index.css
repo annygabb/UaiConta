@@ -5,6 +5,7 @@
 @import "./styles/v4.css";
 @import "./styles/v4-ui-enhancements.css";
 @import "./styles/v5-polish.css";
+@import "./styles/v6-polish.css";
 
 @tailwind base;
 @tailwind components;
