@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { IconCheck, IconCopy, IconFileInvoice, IconPencil, IconPlayerSkipForward, IconSearch, IconTrash } from '@tabler/icons-react'
+import { IconCheck, IconChevronDown, IconCopy, IconFileInvoice, IconPencil, IconPlayerSkipForward, IconSearch, IconTrash } from '@tabler/icons-react'
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, INVESTMENT_CATEGORIES, PAYMENT_METHODS } from '../constants.js'
 import { filterTransactions } from '../finance.js'
 import { dateLabel, money } from '../utils.js'
 import { Badge, EmptyBlock, Panel, PeriodSelector } from '../components/Common.jsx'
-import SelectField from '../components/ui/SelectField.jsx'
 
 const allCategories = Array.from(new Set([...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES, ...INVESTMENT_CATEGORIES]))
 const TYPE_OPTIONS = [
@@ -17,6 +16,15 @@ const STATUS_OPTIONS = [
 
 const isVirtual = (tx) => String(tx.id || '').startsWith('planned:')
 
+function StableFilterSelect({ value, onChange, options, ariaLabel }) {
+  return <span className="stable-filter-select">
+    <select value={value} onChange={(event) => onChange(event.target.value)} aria-label={ariaLabel}>
+      {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+    </select>
+    <IconChevronDown size={16} aria-hidden="true" />
+  </span>
+}
+
 export default function TransactionsPage({ transactions, period, onEdit, onDuplicate, onDelete, onResolvePlanned, onAdd }) {
   const [filters, setFilters] = useState({ search: '', type: 'todos', status: 'todos', category: 'todas', payment: 'todas', imported: 'todos', period })
   useEffect(() => setFilters((current) => ({ ...current, period })), [period])
@@ -26,17 +34,17 @@ export default function TransactionsPage({ transactions, period, onEdit, onDupli
 
   const renderStatus = (tx) => tx.status === 'planned' ? <Badge tone="warning">previsto</Badge> : tx.status === 'cancelled' ? <Badge tone="neutral">cancelado</Badge> : <Badge tone="success">realizado</Badge>
 
-  return <div className="page-stack transactions-page-v6">
+  return <div className="page-stack transactions-page-v7">
     <div className="page-intro"><div><span className="eyebrow">Histórico completo</span><h1>Movimentações</h1><p>Realizado e previsto no mesmo lugar, sem confundir projeção com pagamento concluído.</p></div><button className="primary-btn" onClick={onAdd}>Adicionar movimentação</button></div>
-    <Panel className="filters-panel filters-panel-v6">
+    <Panel className="filters-panel filters-panel-v7">
       <div className="filter-search"><IconSearch size={16}/><input placeholder="Buscar descrição, categoria ou pagamento" value={filters.search} onChange={(e)=>patch('search',e.target.value)}/></div>
-      <div className="filters-grid filters-grid-v6">
+      <div className="filters-grid filters-grid-v7">
         <div className="filter-field"><span>Período</span><PeriodSelector compact value={filters.period} onChange={(value)=>patch('period',value)}/></div>
-        <label><span>Tipo</span><SelectField value={filters.type} onChange={(value)=>patch('type',value)} options={TYPE_OPTIONS} ariaLabel="Filtrar por tipo"/></label>
-        <label><span>Status</span><SelectField value={filters.status} onChange={(value)=>patch('status',value)} options={STATUS_OPTIONS} ariaLabel="Filtrar por status"/></label>
-        <label><span>Categoria</span><SelectField value={filters.category} onChange={(value)=>patch('category',value)} options={[{value:'todas',label:'Todas'},...allCategories.map((value)=>({value,label:value}))]} ariaLabel="Filtrar por categoria"/></label>
-        <label><span>Pagamento</span><SelectField value={filters.payment} onChange={(value)=>patch('payment',value)} options={[{value:'todas',label:'Todos'},...PAYMENT_METHODS.map((value)=>({value,label:value}))]} ariaLabel="Filtrar por pagamento"/></label>
-        <label><span>Origem</span><SelectField value={filters.imported} onChange={(value)=>patch('imported',value)} options={[{value:'todos',label:'Todas'},{value:'sim',label:'Importado'},{value:'nao',label:'Manual/recorrência'}]} ariaLabel="Filtrar por origem"/></label>
+        <label><span>Tipo</span><StableFilterSelect value={filters.type} onChange={(value)=>patch('type',value)} options={TYPE_OPTIONS} ariaLabel="Filtrar por tipo"/></label>
+        <label><span>Status</span><StableFilterSelect value={filters.status} onChange={(value)=>patch('status',value)} options={STATUS_OPTIONS} ariaLabel="Filtrar por status"/></label>
+        <label><span>Categoria</span><StableFilterSelect value={filters.category} onChange={(value)=>patch('category',value)} options={[{value:'todas',label:'Todas'},...allCategories.map((value)=>({value,label:value}))]} ariaLabel="Filtrar por categoria"/></label>
+        <label><span>Pagamento</span><StableFilterSelect value={filters.payment} onChange={(value)=>patch('payment',value)} options={[{value:'todas',label:'Todos'},...PAYMENT_METHODS.map((value)=>({value,label:value}))]} ariaLabel="Filtrar por pagamento"/></label>
+        <label><span>Origem</span><StableFilterSelect value={filters.imported} onChange={(value)=>patch('imported',value)} options={[{value:'todos',label:'Todas'},{value:'sim',label:'Importado'},{value:'nao',label:'Manual/recorrência'}]} ariaLabel="Filtrar por origem"/></label>
         <button className="ghost-btn filter-clear" onClick={()=>setFilters({search:'',type:'todos',status:'todos',category:'todas',payment:'todas',imported:'todos',period})}>Limpar filtros</button>
       </div>
     </Panel>
