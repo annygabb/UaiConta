@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { IconEdit, IconPlus, IconTrash, IconX } from '@tabler/icons-react'
 import { entityRepository } from '../../features/settings/entity.repository.ts'
 import { isSupabaseConfigured } from '../../infrastructure/supabase/client.ts'
@@ -40,16 +40,16 @@ export default function SimpleCrudPage({
 
   const initialForm = useMemo(() => Object.fromEntries(fields.map((field) => [field.key, field.defaultValue ?? ''])), [fields])
 
-  async function reload() {
+  const reload = useCallback(async () => {
     if (!isSupabaseConfigured) { setLoading(false); return }
     setLoading(true)
     setError('')
     try { setRows(await entityRepository.list(table)) }
     catch (err) { setError(err?.message || 'Não foi possível carregar os dados.') }
     finally { setLoading(false) }
-  }
+  }, [table])
 
-  useEffect(() => { reload() }, [table])
+  useEffect(() => { reload() }, [reload])
 
   function openNew() {
     setEditing(null)
