@@ -3,9 +3,11 @@
 import React, { useRef, useState } from 'react'
 import { useReducedMotion } from 'motion/react'
 
+const INITIAL_ROTATION = { x: -8, y: -18 }
+
 export default function InteractiveHeroCoin() {
   const reduced = useReducedMotion() ?? false
-  const [rotation, setRotation] = useState({ x: -8, y: -18 })
+  const [rotation, setRotation] = useState(INITIAL_ROTATION)
   const [dragging, setDragging] = useState(false)
   const dragRef = useRef(null)
 
@@ -33,16 +35,39 @@ export default function InteractiveHeroCoin() {
     setDragging(false)
   }
 
+  const keyDown = (event) => {
+    const step = event.shiftKey ? 24 : 12
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home'].includes(event.key)) return
+    event.preventDefault()
+    if (event.key === 'Home') {
+      setRotation(INITIAL_ROTATION)
+      return
+    }
+    setRotation((current) => ({
+      x: event.key === 'ArrowUp'
+        ? Math.max(-34, current.x - step)
+        : event.key === 'ArrowDown'
+          ? Math.min(28, current.x + step)
+          : current.x,
+      y: event.key === 'ArrowLeft'
+        ? current.y - step
+        : event.key === 'ArrowRight'
+          ? current.y + step
+          : current.y,
+    }))
+  }
+
   return (
     <button
       type="button"
       className={`auth-interactive-coin ${dragging ? 'is-dragging' : ''} ${reduced ? 'reduce-motion' : ''}`}
-      aria-label="Moeda 3D UaiConta. Arraste para girar em 360 graus."
-      title="Arraste para girar"
+      aria-label="Moeda 3D UaiConta. Arraste para girar ou use as setas do teclado. Pressione Home para centralizar."
+      title="Arraste ou use as setas para girar"
       onPointerDown={pointerDown}
       onPointerMove={pointerMove}
       onPointerUp={pointerUp}
       onPointerCancel={pointerUp}
+      onKeyDown={keyDown}
       style={{ '--coin-rx': `${rotation.x}deg`, '--coin-ry': `${rotation.y}deg` }}
     >
       <span className="auth-coin-scene" aria-hidden="true">
@@ -61,7 +86,7 @@ export default function InteractiveHeroCoin() {
         </svg>
         <span className="auth-coin-shadow" />
       </span>
-      <span className="auth-coin-hint">Arraste para girar</span>
+      <span className="auth-coin-hint">Arraste ou use as setas para girar</span>
     </button>
   )
 }
