@@ -45,7 +45,7 @@ export function suggestPaymentMethod(text = '') {
 function normalizeDate(value = '') {
   const clean = String(value || '').trim()
   if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean
-  const match = clean.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/)
+  const match = clean.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/)
   if (!match) return new Date().toISOString().slice(0, 10)
   const year = match[3].length === 2 ? Number(`20${match[3]}`) : Number(match[3])
   return `${year}-${String(Number(match[2])).padStart(2, '0')}-${String(Number(match[1])).padStart(2, '0')}`
@@ -136,7 +136,7 @@ function largestMoney(text) {
 }
 
 function dateFromText(text) {
-  const match = String(text || '').match(/\b\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}\b/)
+  const match = String(text || '').match(/\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b/)
   return match ? normalizeDate(match[0]) : new Date().toISOString().slice(0, 10)
 }
 
