@@ -92,8 +92,10 @@ export const receiptRepository = {
         if (fileError) throw fileError
       }
     } catch (uploadError) {
-      if (uploadedPaths.length) await client.storage.from('financial-documents').remove(uploadedPaths).catch(() => undefined)
-      await client.from('receipts').delete().eq('id', receipt.id).catch(() => undefined)
+      if (uploadedPaths.length) {
+        try { await client.storage.from('financial-documents').remove(uploadedPaths) } catch {}
+      }
+      try { await client.from('receipts').delete().eq('id', receipt.id) } catch {}
       throw uploadError
     }
 
