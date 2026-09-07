@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 const viewports = [
   [280, 653], [320, 568], [360, 800], [375, 812], [390, 844], [414, 896], [430, 932],
@@ -6,7 +6,7 @@ const viewports = [
   [1440, 900], [1600, 900], [1920, 1080], [2560, 1440],
 ] as const
 
-async function enterDemo(page) {
+async function enterDemo(page: Page) {
   const nameInput = page.getByLabel('Seu nome')
   if (await nameInput.isVisible().catch(() => false)) {
     await nameInput.fill('Teste')
