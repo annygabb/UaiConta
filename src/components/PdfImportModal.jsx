@@ -134,7 +134,7 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
     if (!selectedRows.length || importing) return
     setImporting(true)
     try {
-      await onImport(selectedRows.map(({ __selected, __possibleDuplicate, __amountInput, categorySuggested, ...row }) => ({ ...row, amount: Number(row.amount || 0) })))
+      await onImport(selectedRows.map(({ __selected, __possibleDuplicate, __amountInput, categorySuggested: _categorySuggested, ...row }) => ({ ...row, amount: Number(row.amount || 0) })))
       await clearImportDraft()
       onClose()
     } finally { setImporting(false) }
