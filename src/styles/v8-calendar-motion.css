@@ -1,0 +1,89 @@
+/* UaiConta V8 — calendar stability, graph motion and purple interaction polish */
+
+/* Hero: remove the decorative coin and use a financial graph that draws/fades in loop. */
+.auth-hero-coin{width:min(58vw,640px)!important;height:clamp(210px,30vw,360px)!important;right:-4vw!important;top:18%!important;opacity:.9!important;pointer-events:none!important;overflow:visible!important}
+.auth-hero-chart{position:absolute;inset:0;display:grid;place-items:center;filter:drop-shadow(0 20px 40px rgba(81,28,101,.28))}
+.auth-hero-chart svg{width:100%;height:100%;overflow:visible}
+.auth-hero-chart-glow{position:absolute;inset:28% 8% 8%;background:radial-gradient(ellipse at center,rgba(123,51,126,.22),transparent 68%);filter:blur(28px);z-index:-1}
+
+/* Dashboard: the rotating coin now sits on top of a rising line chart instead of bar-like lines. */
+.coin-market-lines{display:none!important}
+.coin-market-graph{position:absolute;left:50%;top:48%;width:min(330px,92%);height:128px;transform:translate(-50%,-50%);z-index:1;opacity:.82;pointer-events:none;mask-image:linear-gradient(90deg,transparent 0,#000 12%,#000 88%,transparent 100%)}
+.coin-market-graph svg{width:100%;height:100%;overflow:visible}
+.coin-3d{z-index:3}.coin-orbit{z-index:2}.coin-floor-glow{z-index:1}.coin-copy{z-index:4}
+
+/* Period/date triggers: icon + label always share the same horizontal baseline. */
+.period-selector-v6 .period-center{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex-wrap:nowrap!important;gap:9px!important;min-width:0!important;white-space:nowrap!important}
+.period-selector-v6 .period-center svg{flex:0 0 auto!important}
+.period-selector-v6 .period-center span{display:block!important;min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;line-height:1.15!important}
+.period-selector-v6.is-compact .period-center{width:100%!important;min-height:54px!important}
+.purple-date-trigger{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;min-width:0!important}
+.purple-date-trigger-main{display:inline-flex!important;align-items:center!important;gap:10px!important;min-width:0!important;white-space:nowrap!important}
+.purple-date-trigger-main>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.purple-date-trigger-main svg{flex:0 0 auto;color:#fff!important;stroke:#fff!important}
+
+/* Wheel pickers are viewport overlays: they never resize, widen or scroll the underlying page/form. */
+.period-wheel-popover,.date-wheel-popover{position:fixed!important;left:50%!important;top:50%!important;right:auto!important;bottom:auto!important;transform:translate(-50%,-50%)!important;width:min(430px,calc(100vw - 24px))!important;max-height:min(620px,calc(100dvh - 24px))!important;z-index:9500!important;padding:18px!important;overflow:hidden!important;contain:layout paint style!important;overscroll-behavior:contain!important;background:linear-gradient(165deg,rgba(31,19,42,.995),rgba(12,8,17,.998))!important;border:1px solid rgba(206,159,230,.18)!important;box-shadow:0 38px 110px rgba(0,0,0,.62),0 0 0 1px rgba(123,51,126,.12),inset 0 1px rgba(255,255,255,.05)!important}
+.period-wheel-grid,.date-wheel-grid{height:min(230px,42dvh)!important;min-height:190px!important;overflow:hidden!important;background:rgba(8,5,12,.44)!important;border-color:rgba(215,176,235,.08)!important}
+.wheel-column{overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;scrollbar-width:none!important;touch-action:pan-y!important}
+.wheel-column button{border-radius:10px!important;color:#8d8492!important;background:transparent!important;outline:none!important}
+.wheel-column button:hover,.wheel-column button:focus-visible{color:#fff!important;background:rgba(151,98,183,.12)!important;box-shadow:inset 0 0 0 1px rgba(211,165,233,.12)!important}
+.wheel-column button.active{color:#fff!important;background:rgba(172,116,205,.16)!important;font-weight:800!important;text-shadow:0 0 16px rgba(221,177,241,.28)!important}
+.wheel-selection-band{background:linear-gradient(90deg,rgba(102,103,171,.10),rgba(170,111,202,.24),rgba(102,103,171,.10))!important;border-color:rgba(212,160,236,.28)!important;box-shadow:0 0 24px rgba(123,51,126,.12),inset 0 1px rgba(255,255,255,.035)!important}
+.period-wheel-actions,.date-wheel-actions{position:relative;z-index:3;background:linear-gradient(180deg,rgba(16,10,22,.12),rgba(16,10,22,.82));padding-top:2px}
+
+/* Keep transaction editor dimensions fixed while a date wheel is open. */
+.transaction-sheet{width:min(960px,calc(100vw - 28px))!important;max-width:min(960px,calc(100vw - 28px))!important;min-width:0!important;overflow-x:clip!important;scrollbar-gutter:stable!important;contain:layout style!important}
+.transaction-sheet .type-grid,.transaction-sheet .form-grid,.transaction-sheet .amount-stage{min-width:0!important;max-width:100%!important}
+.transaction-sheet .type-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px!important}
+.transaction-sheet .type-option{min-width:0!important;overflow:hidden!important}
+.transaction-sheet .type-option strong,.transaction-sheet .type-option small{max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+
+/* Filters: custom fixed popup avoids OS blue selection, focus-scroll jumps and width reflow. */
+.filters-panel-v8,.filters-grid-v8,.transactions-page-v8{min-width:0!important;max-width:100%!important}
+.filters-panel-v8{contain:layout style!important;overflow:visible!important}
+.filters-grid-v8{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px!important;align-items:end!important}
+.filters-grid-v8>label,.filters-grid-v8>.filter-field{display:grid;gap:7px;min-width:0}
+.filters-grid-v8>label>span,.filters-grid-v8>.filter-field>span{font-size:10px;color:#aaa0b0}
+.stable-filter-select-v8{position:relative;display:block;width:100%;min-width:0}
+.stable-filter-trigger{width:100%;height:54px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 14px;border:1px solid rgba(255,255,255,.075);border-radius:14px;background:#0d0911;color:#f7f2f9;cursor:pointer;min-width:0;overflow:hidden;text-align:left}
+.stable-filter-trigger>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stable-filter-trigger svg{flex:0 0 auto;color:#c8b9d0}
+.stable-filter-trigger:hover{border-color:rgba(199,148,224,.24);background:#120c18}
+.stable-filter-trigger:focus-visible{outline:none!important;border-color:rgba(203,151,230,.72)!important;box-shadow:0 0 0 3px rgba(148,91,177,.20)!important;background:rgba(44,28,57,.96)!important}
+.stable-filter-menu{z-index:12000;overflow:auto;padding:7px;border-radius:15px;border:1px solid rgba(211,166,232,.16);background:linear-gradient(165deg,#1a1022,#0d0912);box-shadow:0 24px 70px rgba(0,0,0,.54),0 0 0 1px rgba(123,51,126,.08);overscroll-behavior:contain}
+.stable-filter-menu button{width:100%;min-height:43px;padding:9px 11px;border:0;border-radius:10px;background:transparent;color:#c9bdcf;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;cursor:pointer}
+.stable-filter-menu button:hover,.stable-filter-menu button:focus-visible{outline:none!important;background:rgba(176,117,207,.14)!important;color:#fff!important;box-shadow:inset 0 0 0 1px rgba(220,178,239,.10)!important}
+.stable-filter-menu button.active{background:linear-gradient(90deg,rgba(129,87,160,.22),rgba(176,112,202,.28))!important;color:#fff!important}
+.stable-filter-menu button.active svg{color:#edcff9}
+
+/* Shiny primary buttons, adapted to the Moon palette without external fonts/dependencies. */
+.primary-btn,.top-add,.side-add{--shine-a:#7653b4;--shine-b:#a24ab0;position:relative;isolation:isolate;overflow:hidden!important;border-color:rgba(220,181,239,.12)!important;background:linear-gradient(120deg,#604ca2 0%,#7a3a91 52%,#5b438f 100%)!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05),0 10px 28px rgba(61,20,76,.20)!important;transition:transform .22s ease,box-shadow .22s ease,filter .22s ease!important}
+.primary-btn::after,.top-add::after,.side-add::after{content:"";position:absolute;inset:-140% -45%;z-index:-1;background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.07) 44%,rgba(241,214,252,.62) 50%,rgba(255,255,255,.08) 56%,transparent 62%);transform:translateX(-56%) rotate(8deg);animation:uaiButtonShine 3.8s ease-in-out infinite;pointer-events:none}
+.primary-btn:hover,.top-add:hover,.side-add:hover{filter:brightness(1.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 14px 34px rgba(86,31,105,.30)!important;transform:translateY(-1px)}
+.primary-btn:active,.top-add:active,.side-add:active{transform:translateY(1px)}
+.primary-btn:disabled{opacity:.46;filter:saturate(.55);pointer-events:none}
+@keyframes uaiButtonShine{0%,18%{transform:translateX(-70%) rotate(8deg);opacity:0}35%{opacity:.95}55%,100%{transform:translateX(72%) rotate(8deg);opacity:0}}
+
+@media(max-width:900px){
+  .auth-hero-coin{width:82vw!important;height:210px!important;right:-18vw!important;top:72px!important;opacity:.54!important}
+  .transaction-sheet .type-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .filters-grid-v8{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:620px){
+  .period-wheel-popover,.date-wheel-popover{width:calc(100vw - 16px)!important;max-height:calc(100dvh - 16px)!important;border-radius:18px!important;padding:14px!important}
+  .period-wheel-grid,.date-wheel-grid{height:min(220px,40dvh)!important}
+  .filters-grid-v8{grid-template-columns:1fr!important}
+  .stable-filter-trigger{height:50px}
+  .transaction-sheet{width:calc(100vw - 12px)!important;max-width:calc(100vw - 12px)!important}
+  .auth-hero-coin{width:96vw!important;right:-36vw!important;opacity:.40!important}
+}
+@media(max-width:380px){
+  .transaction-sheet .type-grid{grid-template-columns:1fr 1fr!important;gap:7px!important}
+  .transaction-sheet .type-option{padding:9px!important}
+  .transaction-sheet .type-option small{font-size:8px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .primary-btn::after,.top-add::after,.side-add::after{animation:none!important;display:none!important}
+  .auth-hero-chart *,.coin-market-graph *{animation:none!important}
+}

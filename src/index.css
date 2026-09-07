@@ -7,6 +7,7 @@
 @import "./styles/v5-polish.css";
 @import "./styles/v6-polish.css";
 @import "./styles/v7-fixes.css";
+@import "./styles/v8-calendar-motion.css";
 
 @tailwind base;
 @tailwind components;
