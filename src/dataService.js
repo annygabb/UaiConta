@@ -25,7 +25,7 @@ function safeJson(value, fallback) {
 }
 
 function normalizeTx(item) {
-  const amount = Number(item.amount ?? (Number(item.amountCents || 0) / 100) ?? 0)
+  const amount = Number(item.amount ?? (Number(item.amountCents || 0) / 100))
   return {
     id: item.id || uid(),
     type: item.type || 'despesa',

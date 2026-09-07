@@ -3,7 +3,7 @@ import { IconCreditCard, IconPlus, IconQrcode, IconTrash, IconX } from '@tabler/
 import { entityRepository } from '../../features/settings/entity.repository.ts'
 import { transactionRepository } from '../../features/transactions/transaction.repository.ts'
 import { isSupabaseConfigured } from '../../infrastructure/supabase/client.ts'
-import { formatCents, reaisToCents } from '../../domain/money/money.ts'
+import { reaisToCents } from '../../domain/money/money.ts'
 import PaymentFolder from '../../components/ui/PaymentFolder.jsx'
 
 const emptyForm = { name: '', bank: '', limit: '', closingDay: '', dueDay: '' }
