@@ -8,6 +8,7 @@ import { IconEye, IconEyeOff, IconKey, IconLoader2, IconLock, IconMail, IconUser
 import { requestPasswordReset, signIn, signUp } from '../dataService.js'
 import { ROUTES } from '../constants.js'
 import BrandLogo from './ui/BrandLogo.jsx'
+import InteractiveHeroCoin from './ui/InteractiveHeroCoin.jsx'
 import MotionInput from './ui/MotionInput.jsx'
 import PasswordStrength, { evaluatePassword } from './ui/PasswordStrength.jsx'
 import PurpleCheckbox from './ui/PurpleCheckbox.jsx'
@@ -46,7 +47,6 @@ export default function AuthScreen({ onAuthenticated }) {
     if (reduce || !visualRef.current) return undefined
     const context = gsap.context(() => {
       gsap.fromTo('[data-auth-reveal]', { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.85, stagger: 0.08, ease: 'power3.out' })
-      gsap.to('.auth-brand-coin', { y: -9, rotate: 2.4, duration: 3.2, repeat: -1, yoyo: true, ease: 'sine.inOut' })
       gsap.to('.auth-aurora-a', { xPercent: 12, yPercent: -7, scale: 1.08, duration: 10, repeat: -1, yoyo: true, ease: 'sine.inOut' })
       gsap.to('.auth-aurora-b', { xPercent: -10, yPercent: 8, scale: 1.12, duration: 12, repeat: -1, yoyo: true, ease: 'sine.inOut' })
     }, visualRef)
@@ -131,10 +131,7 @@ export default function AuthScreen({ onAuthenticated }) {
         <div className="auth-aurora auth-aurora-b" aria-hidden="true" />
         <div className="auth-grid-glow" aria-hidden="true" />
         <div data-auth-reveal><BrandLogo /></div>
-        <div className="auth-hero-coin auth-brand-coin" aria-hidden="true">
-          <img src="/brand/uai-logo-384.png" alt="" />
-          <span className="auth-coin-orbit orbit-one" /><span className="auth-coin-orbit orbit-two" />
-        </div>
+        <div className="auth-hero-coin"><InteractiveHeroCoin /></div>
         <div className="auth-hero-copy" data-auth-reveal>
           <span className="eyebrow">Finanças sem ruído</span>
           <h1><ShimmeringText text="Transforme seus lançamentos em decisões claras." /></h1>
