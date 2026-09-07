@@ -36,12 +36,9 @@ export default function MorePage({ onImportPdf, session, onSignOut }) {
       {items.map(({icon:Icon,title,text,to})=><Link className="more-card" key={to} to={to}><span><Icon size={21}/></span><div><strong>{title}</strong><p>{text}</p></div></Link>)}
     </div>
 
-    <div className="dashboard-grid dashboard-grid-secondary more-session-grid">
+    <div className="more-session-grid">
       <Panel title="Sessão" subtitle={session?.user?.email || 'Modo demo'}>
         <div className="settings-actions">{session ? <button className="ghost-btn" onClick={onSignOut}><IconLock size={16}/> Sair de todos os dispositivos</button> : <span className="muted-copy">Entre em uma conta para sincronizar seus dados.</span>}</div>
-      </Panel>
-      <Panel title="Importação que continua" subtitle="Você pode fechar e voltar depois">
-        <p className="muted-copy">Arquivos selecionados para importação ficam em um rascunho local do navegador até você importar ou descartar.</p>
       </Panel>
     </div>
   </div>

@@ -50,7 +50,7 @@ import { profileRepository } from './features/profile/profile.repository.ts'
 const nameConfirmationKey = (scope) => `uaiconta-name-confirmed-v1:${scope}`
 const isClockSkewMessage = (message) => /JWT issued at future|issued in the future|not valid yet/i.test(String(message || ''))
 const userError = (error, fallback) => isClockSkewMessage(error?.message)
-  ? 'Sua sessão precisa ser renovada por um problema de sincronização. Entre novamente.'
+  ? 'Não foi possível validar a sessão agora.'
   : (error?.message || fallback)
 
 export default function UaiConta() {
@@ -120,7 +120,7 @@ export default function UaiConta() {
           await signOut().catch(() => undefined)
           if (!active) return
           setSession(null)
-          setError('Sua sessão foi renovada porque estava fora de sincronia. Entre novamente para continuar.')
+          setError('')
           return
         }
         setError(userError(err, 'Falha ao carregar dados.'))
@@ -146,8 +146,16 @@ export default function UaiConta() {
         const confirmed = sessionStorage.getItem(nameConfirmationKey(scope)) === 'true'
         setNamePromptOpen(!confirmed)
       })
-      .catch((err) => {
+      .catch(async (err) => {
         if (!active) return
+        if (isClockSkewMessage(err?.message)) {
+          await signOut().catch(() => undefined)
+          if (!active) return
+          setSession(null)
+          setError('')
+          setNamePromptOpen(false)
+          return
+        }
         setError(userError(err, 'Não foi possível carregar seu perfil.'))
         setNamePromptOpen(true)
       })
@@ -171,7 +179,15 @@ export default function UaiConta() {
     let active = true
     const reloadRules = () => recurrenceRepository.list()
       .then((rows) => { if (active) setRecurrenceRules(rows) })
-      .catch((err) => { if (active) setError(userError(err, 'Não foi possível carregar recorrências.')) })
+      .catch(async (err) => {
+        if (!active) return
+        if (isClockSkewMessage(err?.message)) {
+          await signOut().catch(() => undefined)
+          if (active) { setSession(null); setError('') }
+          return
+        }
+        setError(userError(err, 'Não foi possível carregar recorrências.'))
+      })
     reloadRules()
     const onDataChanged = (event) => {
       if (event?.detail?.table === 'recurrence_rules') reloadRules()

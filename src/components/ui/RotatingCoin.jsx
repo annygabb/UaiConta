@@ -15,10 +15,13 @@ export default function RotatingCoin({ realized = 0, forecast = 0, income = 0, c
           animate={reduced ? { rotateY: 18, rotateX: -8 } : { rotateY: [0, 360], rotateX: [-8, 5, -8] }}
           transition={reduced ? { duration: 0 } : { rotateY: { duration: 7.5, repeat: Infinity, ease: 'linear' }, rotateX: { duration: 4.5, repeat: Infinity, ease: 'easeInOut' } }}
         >
-          <div className="coin-face coin-front"><img src="/brand/uai-logo-96.png" alt="" /></div>
+          <div className="coin-face coin-front"><img src="/brand/uai-mark.svg" alt="" /></div>
           <div className="coin-face coin-back"><span>UAI</span></div>
           <div className="coin-rim" />
         </motion.div>
+        <div className="coin-market-lines" aria-hidden="true">
+          {[18, 34, 26, 52, 41, 67, 49, 78, 58].map((height, index) => <span key={index} style={{ '--line-h': `${height}px`, '--line-i': index }} />)}
+        </div>
         <div className="coin-floor-glow" />
         <div className="coin-orbit coin-orbit-a" />
         <div className="coin-orbit coin-orbit-b" />

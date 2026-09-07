@@ -1,0 +1,117 @@
+/* UaiConta V7 — fixes from production feedback */
+
+/* Auth: keep mode tabs from covering the heading and improve the hero */
+.auth-page-v6{grid-template-columns:minmax(0,1.16fr) minmax(390px,.84fr);overflow:hidden}
+.auth-visual-v6{min-height:100dvh;padding:clamp(34px,5vw,70px);display:flex;flex-direction:column;justify-content:space-between}
+.auth-card-v6{align-self:center;justify-self:center;margin:24px;width:min(540px,calc(100% - 48px));padding:26px;justify-content:flex-start}
+.auth-mode-tabs-v6{position:relative!important;top:auto!important;z-index:2;margin:0 0 24px;background:rgba(18,12,24,.72);backdrop-filter:blur(14px)}
+.auth-form-shell{position:relative;z-index:1}
+.auth-card-heading{padding-top:2px}
+.auth-card-heading .eyebrow{display:block;margin-bottom:6px}
+
+.auth-interactive-coin{position:relative;width:100%;height:100%;border:0;background:transparent;padding:0;cursor:grab;perspective:1100px;touch-action:none;color:#cab8d4;outline:none}
+.auth-interactive-coin.is-dragging{cursor:grabbing}
+.auth-interactive-coin:focus-visible{outline:2px solid rgba(216,166,240,.8);outline-offset:8px;border-radius:50%}
+.auth-coin-scene{position:absolute;inset:0;display:grid;place-items:center;transform-style:preserve-3d;transform:rotateX(var(--coin-rx,-8deg)) rotateY(var(--coin-ry,-18deg));transition:transform .12s ease-out}
+.auth-vector-coin{position:relative;width:64%;aspect-ratio:1;border-radius:50%;transform-style:preserve-3d;animation:heroCoinAutoSpin 10s linear infinite;filter:drop-shadow(0 34px 48px rgba(64,19,77,.44))}
+.auth-interactive-coin.is-dragging .auth-vector-coin,.auth-interactive-coin.reduce-motion .auth-vector-coin{animation-play-state:paused}
+.auth-vector-face{position:absolute;inset:0;border-radius:50%;backface-visibility:hidden;display:grid;place-items:center;border:5px solid #8f63ad;background:radial-gradient(circle at 32% 23%,#c69add 0 7%,#8d4ab1 22%,#542167 52%,#26102f 78%,#100712 100%);box-shadow:inset 0 0 0 5px rgba(225,197,240,.78),inset 0 0 0 9px rgba(80,30,95,.75),inset 0 0 34px rgba(255,255,255,.2),0 0 42px rgba(153,77,192,.26)}
+.auth-vector-front{transform:translateZ(10px)}
+.auth-vector-front img{width:64%;height:64%;object-fit:contain;filter:drop-shadow(0 5px 7px rgba(0,0,0,.34))}
+.auth-vector-back{transform:rotateY(180deg) translateZ(10px);font-size:clamp(23px,4vw,44px);font-weight:850;letter-spacing:.08em;color:#f9eefc;text-shadow:0 3px 12px rgba(0,0,0,.45)}
+.auth-vector-rim{position:absolute;left:50%;top:50%;width:20px;height:94%;transform:translate(-50%,-50%) rotateY(90deg);border-radius:8px;background:repeating-linear-gradient(0deg,#d4b9df 0 4px,#744787 4px 8px);box-shadow:0 0 12px rgba(0,0,0,.3)}
+.auth-cowboy-hat{position:absolute;width:78%;left:11%;top:4%;filter:drop-shadow(0 14px 15px rgba(0,0,0,.42));transform:translateZ(32px) rotate(-4deg);pointer-events:none}
+.auth-coin-shadow{position:absolute;width:68%;height:16%;bottom:9%;border-radius:50%;background:rgba(104,43,127,.22);filter:blur(18px);transform:rotateX(70deg)}
+.auth-coin-hint{position:absolute;left:50%;bottom:2%;transform:translateX(-50%);white-space:nowrap;padding:7px 10px;border:1px solid rgba(255,255,255,.07);border-radius:999px;background:rgba(12,8,16,.52);font-size:9px;letter-spacing:.04em;color:#a99bb2;opacity:.85}
+@keyframes heroCoinAutoSpin{from{transform:rotateY(0deg)}to{transform:rotateY(360deg)}}
+
+/* Period labels must never break into Agosto / de / 2026 */
+.period-selector-v6{isolation:isolate}
+.period-selector-v6 .period-center{min-width:156px;max-width:100%;padding-inline:12px;gap:8px}
+.period-selector-v6 .period-center span{display:block;min-width:0;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.period-selector-v6.is-compact{width:100%}
+.period-selector-v6.is-compact .period-center{width:100%;min-width:0;min-height:54px}
+.topbar .period-selector-v6{min-width:0}
+.topbar .period-center{max-width:min(220px,32vw)}
+.topbar-title{min-width:0}.topbar-title strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+
+/* Movement filters: native selects are intentionally used here to avoid Radix focus/scroll reflow. */
+.filters-panel-v7{contain:layout style;overflow:visible!important}
+.filters-grid-v7{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end}
+.filters-grid-v7>label,.filters-grid-v7>.filter-field{min-width:0;display:grid;gap:7px}
+.filters-grid-v7>label>span,.filters-grid-v7>.filter-field>span{font-size:10px;color:#aaa0b0}
+.stable-filter-select{position:relative;display:block;width:100%;min-width:0}
+.stable-filter-select select{display:block;width:100%;min-width:0;max-width:100%;height:54px;padding:0 42px 0 14px;border:1px solid rgba(255,255,255,.075);border-radius:14px;background:#0d0911;color:#f7f2f9;outline:none;appearance:none;-webkit-appearance:none;font-size:11px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stable-filter-select select:focus{border-color:rgba(170,126,211,.65);box-shadow:0 0 0 3px rgba(123,51,126,.16)}
+.stable-filter-select svg{pointer-events:none;position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#b8adbf}
+.stable-filter-select option{background:#120c18;color:#fff}
+.filter-search{min-width:0;overflow:hidden}.filter-search input{min-width:0;width:100%}
+.transactions-page-v7,.transactions-page-v7 .panel,.transactions-page-v7 .filters-grid-v7{max-width:100%;min-width:0}
+
+/* Sidebar collapsed state stays fully inside its own 68px rail. */
+.sidebar.is-collapsed .animated-sidebar-head{min-height:96px!important;flex-direction:column!important;justify-content:flex-start!important;align-items:center!important;gap:10px!important;padding-top:2px}
+.sidebar.is-collapsed .sidebar-collapse{position:static!important;left:auto!important;top:auto!important;width:38px!important;height:34px!important;margin:0 auto;box-shadow:none!important}
+.sidebar.is-collapsed .sidebar-brand{width:48px!important;height:48px;overflow:visible!important}
+.sidebar.is-collapsed .uai-brand-logo img{width:42px!important;height:42px!important}
+.app-shell:has(.sidebar.is-collapsed) .app-column{margin-left:68px!important;width:calc(100% - 68px)!important;min-width:0}
+
+/* Category amounts and income breakdown */
+.category-value-list button{grid-template-columns:10px minmax(0,1fr) auto!important;align-items:center!important;gap:9px!important;min-width:0}
+.category-value-list button>span:nth-child(2){display:grid;min-width:0;gap:1px;color:#fff!important}
+.category-value-list button>span:nth-child(2) b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff!important;font-weight:650}
+.category-value-list button>span:nth-child(2) small{color:#82798a;font-size:8px}
+.category-money{color:#fff!important;font-size:10px!important;white-space:nowrap}
+.income-category-block{margin-top:13px;padding-top:12px;border-top:1px solid rgba(255,255,255,.055)}
+.income-category-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:7px;color:#8f8697;font-size:9px;text-transform:uppercase;letter-spacing:.08em}
+.income-category-head strong{color:#b9d9c5;font-size:10px;letter-spacing:0;text-transform:none}
+.income-category-list{display:grid;gap:4px}.income-category-list button{border:0;background:transparent;color:#dcd4e1;display:flex;justify-content:space-between;gap:12px;align-items:center;padding:5px 2px;text-align:left;cursor:pointer;font-size:9px}.income-category-list button:hover{color:#fff}.income-category-list button strong{color:#fff;white-space:nowrap}
+
+/* Dashboard coin gets animated market lines instead of empty space. */
+.coin-stage{overflow:visible}
+.coin-market-lines{position:absolute;left:50%;top:46%;width:min(290px,85%);height:120px;transform:translate(-50%,-50%);display:flex;align-items:flex-end;justify-content:center;gap:8px;opacity:.7;mask-image:linear-gradient(90deg,transparent,#000 16%,#000 84%,transparent);pointer-events:none}
+.coin-market-lines span{width:1px;height:var(--line-h);background:linear-gradient(to top,transparent,rgba(180,112,216,.58),rgba(226,188,244,.8));box-shadow:0 0 9px rgba(150,70,188,.32);transform-origin:bottom;animation:marketLineRise 2.8s ease-in-out infinite;animation-delay:calc(var(--line-i) * -0.23s)}
+@keyframes marketLineRise{0%,100%{opacity:0;transform:translateY(28px) scaleY(.18)}35%{opacity:.68}58%{opacity:1;transform:translateY(0) scaleY(1)}82%{opacity:.2;transform:translateY(-17px) scaleY(.72)}}
+.coin-3d{z-index:3}.coin-floor-glow{z-index:1}.coin-orbit{z-index:2}.coin-copy{z-index:4}
+
+/* Modal/date picker can never create an inner horizontal scrollbar. */
+.modal-card,.modal-content,.transaction-form,.form-grid,.form-section{min-width:0;max-width:100%;overflow-x:hidden}
+.date-wheel-popover{max-width:min(430px,calc(100vw - 24px))}
+.date-wheel-grid{min-width:0;max-width:100%}.wheel-column{min-width:0}
+
+/* Latest movement labels and values stay inside their card. */
+.mini-transactions>button{min-width:0!important;overflow:hidden!important}
+.mini-transactions>button>div{min-width:0!important;overflow:hidden!important}
+.mini-transactions>button strong,.mini-transactions>button span{max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+.mini-transactions>button b{max-width:45%;overflow:hidden;text-overflow:ellipsis}
+
+/* More page now has only the useful session card below the resource grid. */
+.more-session-grid{display:grid;grid-template-columns:minmax(0,1fr);max-width:760px}
+
+@media(max-width:1100px){
+  .auth-page-v6{grid-template-columns:minmax(0,1fr) minmax(360px,.86fr)}
+  .filters-grid-v7{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:900px){
+  .auth-page-v6{display:block;overflow:visible}.auth-visual-v6{min-height:auto}.auth-card-v6{width:min(620px,calc(100% - 28px));max-height:none;overflow:visible;margin:14px auto 30px}.auth-mode-tabs-v6{position:relative!important;top:auto!important}
+  .auth-hero-coin{width:210px!important;height:210px!important;right:-20px!important;top:58px!important;opacity:.72!important}.auth-coin-hint{display:none}
+  .app-shell:has(.sidebar.is-collapsed) .app-column{margin-left:0!important;width:100%!important}
+}
+@media(max-width:720px){
+  .filters-grid-v7{grid-template-columns:1fr}.stable-filter-select select{height:50px}
+  .period-selector-v6.is-compact .period-center{min-height:50px}
+  .topbar .period-center{max-width:48vw;min-width:0}
+  .coin-market-lines{width:230px;height:100px;gap:7px}
+}
+@media(max-width:540px){
+  .auth-card-v6{width:calc(100% - 20px);padding:18px}.auth-mode-tabs-v6{margin-bottom:20px}.auth-card-heading h2{font-size:25px}
+  .auth-hero-coin{width:165px!important;height:165px!important;right:-34px!important;top:64px!important;opacity:.58!important}
+  .period-selector-v6 .period-center span{font-size:11px}
+  .topbar .period-center{max-width:52vw}
+  .mini-transactions>button{grid-template-columns:minmax(0,1fr)!important}.mini-transactions>button b{max-width:100%;justify-self:start}
+}
+@media(max-width:360px){
+  .topbar .period-center{max-width:56vw}.period-selector-v6 .period-center{padding-inline:8px}.stable-filter-select select{font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  .auth-vector-coin,.coin-market-lines span{animation:none!important}.auth-coin-scene{transition:none!important}
+}

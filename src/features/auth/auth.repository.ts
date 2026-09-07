@@ -25,8 +25,25 @@ async function throwAuthError(error: unknown): Promise<never> {
 }
 
 export async function initializeAuth(): Promise<Session | null> {
+  const client = getSupabaseClient()
   try {
-    return await getCurrentSession()
+    const cached = await getCurrentSession()
+    if (!cached) return null
+
+    const { data: refreshed, error: refreshError } = await client.auth.refreshSession({ refresh_token: cached.refresh_token })
+    if (!refreshError && refreshed.session) return refreshed.session
+    if (refreshError && clockSkewError(refreshError)) {
+      await clearLocalSession()
+      return null
+    }
+
+    const { error: verifyError } = await client.auth.getUser()
+    if (verifyError && clockSkewError(verifyError)) {
+      await clearLocalSession()
+      return null
+    }
+    if (verifyError) throw verifyError
+    return cached
   } catch (error) {
     if (clockSkewError(error)) {
       await clearLocalSession()
