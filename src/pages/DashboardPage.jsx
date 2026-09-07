@@ -46,6 +46,17 @@ export default function DashboardPage({ metrics, monthlySeries, recentTransactio
   const totalForPie = metrics.expense || 1
   const onlyUncategorized = metrics.categoryData.length === 1 && metrics.categoryData[0]?.name === 'Não categorizado'
 
+  const incomeCategoryData = useMemo(() => {
+    const map = new Map()
+    recentTransactions
+      .filter((row) => row.type === 'receita' && row.status !== 'cancelled')
+      .forEach((row) => {
+        const key = row.category || 'Outras receitas'
+        map.set(key, (map.get(key) || 0) + Number(row.amount || 0))
+      })
+    return Array.from(map, ([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
+  }, [recentTransactions])
+
   useEffect(() => {
     if (!isSupabaseConfigured) return undefined
     let active = true
@@ -115,7 +126,8 @@ export default function DashboardPage({ metrics, monthlySeries, recentTransactio
         <Panel title="Gastos por categoria" subtitle="Percentual do total de despesas">
           {metrics.categoryData.length ? <>
             <div className="chart-donut"><ResponsiveContainer><PieChart><Pie data={metrics.categoryData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={78} paddingAngle={2}>{metrics.categoryData.map((entry,i)=><Cell key={entry.name} fill={CATEGORY_COLORS[i%CATEGORY_COLORS.length]} stroke="none"/>)}</Pie><Tooltip cursor={false} contentStyle={tooltipStyle} formatter={(v,n)=>[`${money(v)} · ${((v/totalForPie)*100).toFixed(1)}%`,n]}/></PieChart></ResponsiveContainer><div className="donut-center"><span>Total</span><strong>{money(metrics.expense)}</strong></div></div>
-            <div className="legend-list">{metrics.categoryData.slice(0,6).map((item,i)=><button key={item.name} onClick={()=>navigate(ROUTES.expenses)}><span className="legend-dot" style={{background:CATEGORY_COLORS[i%CATEGORY_COLORS.length]}}/><span>{item.name}</span><strong>{item.percentage.toFixed(0)}%</strong></button>)}</div>
+            <div className="legend-list category-value-list">{metrics.categoryData.slice(0,6).map((item,i)=><button key={item.name} onClick={()=>navigate(ROUTES.expenses)}><span className="legend-dot" style={{background:CATEGORY_COLORS[i%CATEGORY_COLORS.length]}}/><span><b>{item.name}</b><small>{item.percentage.toFixed(0)}% dos gastos</small></span><strong className="category-money">{money(item.value)}</strong></button>)}</div>
+            {incomeCategoryData.length > 0 && <div className="income-category-block"><div className="income-category-head"><span>Entradas por categoria</span><strong>{money(incomeCategoryData.reduce((sum, item) => sum + item.value, 0))}</strong></div><div className="income-category-list">{incomeCategoryData.slice(0,5).map((item)=><button key={item.name} onClick={()=>navigate(ROUTES.income)}><span>{item.name}</span><strong>{money(item.value)}</strong></button>)}</div></div>}
             {onlyUncategorized && <div className="uncategorized-callout"><p>Esses gastos ainda não têm categoria confiável.</p><button className="ghost-btn" onClick={() => navigate(ROUTES.transactions)}>Revisar movimentações</button></div>}
           </> : <p className="empty-text">Sem despesas neste período.</p>}
         </Panel>
