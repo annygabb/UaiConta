@@ -54,6 +54,10 @@ Não considerar uma execução anterior suficiente depois de alterar código, mi
 5. somente então mergear para `main`;
 6. confirmar deploy de produção `READY` e smoke test das rotas críticas.
 
+## Última validação V7
+
+A execução candidata passou em quality e E2E, incluindo lint, typecheck, unitários, segurança, build, audit, desktop, mobile, matriz responsiva e axe. O Preview Vercel correspondente ficou `READY` e não apresentou logs de warning/error/fatal na janela verificada. Qualquer commit posterior a esta anotação deve disparar nova suíte antes de merge.
+
 ## FAIL
 
 Nenhum FAIL crítico conhecido no momento desta revisão. Qualquer falha nova no CI, advisor de segurança crítico ou erro de Preview bloqueia o merge até correção e reteste.
