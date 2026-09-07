@@ -3,8 +3,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { gsap } from 'gsap'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { Link } from 'react-router-dom'
 import { IconEye, IconEyeOff, IconKey, IconLoader2, IconLock, IconMail, IconUser } from '@tabler/icons-react'
 import { requestPasswordReset, signIn, signUp } from '../dataService.js'
+import { ROUTES } from '../constants.js'
 import BrandLogo from './ui/BrandLogo.jsx'
 import MotionInput from './ui/MotionInput.jsx'
 import PasswordStrength, { evaluatePassword } from './ui/PasswordStrength.jsx'
@@ -17,7 +19,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 function friendlyAuthError(error) {
   const message = String(error?.message || '')
   if (/JWT issued at future/i.test(message)) {
-    return 'O horário deste dispositivo parece estar fora de sincronia. Ative data/hora automáticas, sincronize o relógio e tente entrar novamente.'
+    return 'Sua sessão perdeu a sincronização. Atualize a hora automática do dispositivo e tente entrar novamente.'
   }
   if (/Invalid login credentials/i.test(message)) return 'E-mail ou senha incorretos.'
   if (/Email not confirmed/i.test(message)) return 'Confirme o e-mail de cadastro antes de entrar.'
@@ -43,9 +45,10 @@ export default function AuthScreen({ onAuthenticated }) {
   useEffect(() => {
     if (reduce || !visualRef.current) return undefined
     const context = gsap.context(() => {
-      gsap.fromTo('[data-auth-reveal]', { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.9, stagger: 0.1, ease: 'power3.out' })
-      gsap.to('.auth-brand-coin', { y: -8, rotate: 2, duration: 2.8, repeat: -1, yoyo: true, ease: 'sine.inOut' })
-      gsap.to('.auth-grid-glow', { xPercent: 12, yPercent: -8, duration: 8, repeat: -1, yoyo: true, ease: 'sine.inOut' })
+      gsap.fromTo('[data-auth-reveal]', { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.85, stagger: 0.08, ease: 'power3.out' })
+      gsap.to('.auth-brand-coin', { y: -9, rotate: 2.4, duration: 3.2, repeat: -1, yoyo: true, ease: 'sine.inOut' })
+      gsap.to('.auth-aurora-a', { xPercent: 12, yPercent: -7, scale: 1.08, duration: 10, repeat: -1, yoyo: true, ease: 'sine.inOut' })
+      gsap.to('.auth-aurora-b', { xPercent: -10, yPercent: 8, scale: 1.12, duration: 12, repeat: -1, yoyo: true, ease: 'sine.inOut' })
     }, visualRef)
     return () => context.revert()
   }, [reduce])
@@ -68,7 +71,7 @@ export default function AuthScreen({ onAuthenticated }) {
     else if (confirmPassword !== password) errors.confirmPassword = 'As senhas não são iguais.'
     if (!terms) errors.terms = 'Aceite os termos para criar a conta.'
     return errors
-  }, [confirmPassword, email, name, password, passwordState])
+  }, [confirmPassword, email, name, password, passwordState, terms])
 
   const loginErrors = useMemo(() => {
     const errors = {}
@@ -122,8 +125,10 @@ export default function AuthScreen({ onAuthenticated }) {
   const title = mode === 'login' ? 'Entrar no UaiConta' : mode === 'signup' ? 'Criar sua conta' : 'Recuperar senha'
 
   return (
-    <main className="auth-page auth-page-v5" ref={visualRef}>
-      <section className="auth-visual auth-visual-v5">
+    <main className="auth-page auth-page-v6" ref={visualRef}>
+      <section className="auth-visual auth-visual-v6">
+        <div className="auth-aurora auth-aurora-a" aria-hidden="true" />
+        <div className="auth-aurora auth-aurora-b" aria-hidden="true" />
         <div className="auth-grid-glow" aria-hidden="true" />
         <div data-auth-reveal><BrandLogo /></div>
         <div className="auth-hero-coin auth-brand-coin" aria-hidden="true">
@@ -141,8 +146,8 @@ export default function AuthScreen({ onAuthenticated }) {
         </div>
       </section>
 
-      <section className="auth-card auth-card-v5" data-auth-reveal>
-        <div className="auth-mode-tabs" role="tablist" aria-label="Acesso ao UaiConta">
+      <section className="auth-card auth-card-v6" data-auth-reveal>
+        <div className="auth-mode-tabs auth-mode-tabs-v6" role="tablist" aria-label="Acesso ao UaiConta">
           <button type="button" role="tab" aria-selected={mode === 'login'} className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Entrar</button>
           <button type="button" role="tab" aria-selected={mode === 'signup'} className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')}>Criar conta</button>
         </div>
@@ -151,10 +156,10 @@ export default function AuthScreen({ onAuthenticated }) {
           <motion.div
             className="auth-form-shell"
             key={mode}
-            initial={reduce ? { opacity: 1 } : { opacity: 0, y: 10, filter: 'blur(6px)' }}
+            initial={reduce ? { opacity: 1 } : { opacity: 0, y: 8, filter: 'blur(5px)' }}
             animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8, filter: 'blur(5px)' }}
-            transition={{ duration: reduce ? 0 : 0.28 }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6, filter: 'blur(4px)' }}
+            transition={{ duration: reduce ? 0 : 0.24 }}
           >
             <div className="auth-card-heading">
               <span className="eyebrow">{mode === 'login' ? 'Bem-vinda de volta' : mode === 'signup' ? 'Comece agora' : 'Acesso à conta'}</span>
@@ -194,8 +199,11 @@ export default function AuthScreen({ onAuthenticated }) {
               )}
 
               {mode === 'signup' && (
-                <div className="auth-terms">
-                  <PurpleCheckbox checked={terms} onCheckedChange={(checked) => { setTerms(checked); touch('terms') }} label="Li e aceito os Termos e a Política de Privacidade" ariaLabel="Aceitar termos e política de privacidade" />
+                <div className="auth-terms auth-terms-v6">
+                  <div className="auth-terms-row">
+                    <span>Li e aceito os <Link to={`${ROUTES.legal}#termos`}>Termos</Link> e a <Link to={`${ROUTES.legal}#privacidade`}>Política de Privacidade</Link></span>
+                    <PurpleCheckbox checked={terms} onCheckedChange={(checked) => { setTerms(checked); touch('terms') }} ariaLabel="Aceitar Termos e Política de Privacidade" />
+                  </div>
                   {fieldError('terms') && <p className="auth-field-error" role="alert">{fieldError('terms')}</p>}
                 </div>
               )}
