@@ -1,14 +1,41 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.115.0'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+const DEFAULT_ALLOWED_ORIGINS = new Set([
+  'https://uaiconta.vercel.app',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+])
+
+const configuredOrigins = (Deno.env.get('ALLOWED_ORIGINS') || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean)
+
+const allowedOrigins = new Set([...DEFAULT_ALLOWED_ORIGINS, ...configuredOrigins])
+
+function isAllowedOrigin(origin: string) {
+  if (!origin) return true
+  if (allowedOrigins.has(origin)) return true
+  return /^https:\/\/uaiconta-[a-z0-9-]+-annygabbyoficial-5107s-projects\.vercel\.app$/i.test(origin)
 }
 
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+function responseHeaders(origin: string) {
+  return {
+    'Access-Control-Allow-Origin': origin || 'https://uaiconta.vercel.app',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Max-Age': '600',
+    'Cache-Control': 'no-store',
+    'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
+    'Referrer-Policy': 'no-referrer',
+    'Vary': 'Origin',
+    'X-Content-Type-Options': 'nosniff',
+  }
+}
+
+const json = (body: unknown, origin: string, status = 200) => new Response(JSON.stringify(body), {
   status,
-  headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
+  headers: { ...responseHeaders(origin), 'Content-Type': 'application/json; charset=utf-8' },
 })
 
 async function collectFiles(client: any, bucket: string, prefix: string): Promise<string[]> {
@@ -39,23 +66,31 @@ async function collectFiles(client: any, bucket: string, prefix: string): Promis
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
-  if (req.method !== 'POST') return json({ ok: false, error: 'Método não permitido.' }, 405)
+  const origin = req.headers.get('Origin') || ''
+  if (!isAllowedOrigin(origin)) return json({ ok: false, error: 'Origem não permitida.' }, origin, 403)
+
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: responseHeaders(origin) })
+  if (req.method !== 'POST') return json({ ok: false, error: 'Método não permitido.' }, origin, 405)
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const publishableKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY')
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   if (!supabaseUrl || !publishableKey || !serviceRoleKey) {
-    return json({ ok: false, error: 'Função não configurada.' }, 500)
+    return json({ ok: false, error: 'Função não configurada.' }, origin, 500)
   }
 
   const authHeader = req.headers.get('Authorization') || ''
   const jwt = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-  if (!jwt) return json({ ok: false, error: 'Sessão ausente.' }, 401)
+  if (!jwt) return json({ ok: false, error: 'Sessão ausente.' }, origin, 401)
+
+  const contentType = req.headers.get('Content-Type') || ''
+  if (!contentType.toLowerCase().startsWith('application/json')) {
+    return json({ ok: false, error: 'Content-Type inválido.' }, origin, 415)
+  }
 
   const body = await req.json().catch(() => ({}))
   if (body?.confirm !== 'DELETE_MY_ACCOUNT') {
-    return json({ ok: false, error: 'Confirmação inválida.' }, 400)
+    return json({ ok: false, error: 'Confirmação inválida.' }, origin, 400)
   }
 
   const userClient = createClient(supabaseUrl, publishableKey, {
@@ -67,7 +102,7 @@ Deno.serve(async (req) => {
   })
 
   const { data: authData, error: authError } = await userClient.auth.getUser(jwt)
-  if (authError || !authData.user) return json({ ok: false, error: 'Sessão inválida ou expirada.' }, 401)
+  if (authError || !authData.user) return json({ ok: false, error: 'Sessão inválida ou expirada.' }, origin, 401)
   const userId = authData.user.id
 
   try {
@@ -79,18 +114,17 @@ Deno.serve(async (req) => {
       if (removeError) throw removeError
     }
 
-    // Revoga refresh tokens/sessões antes da remoção. Access tokens existentes expiram no TTL configurado.
     await admin.auth.admin.signOut(jwt, 'global').catch(() => undefined)
 
     const { error: deleteError } = await admin.auth.admin.deleteUser(userId, false)
     if (deleteError) throw deleteError
 
-    return json({ ok: true })
+    return json({ ok: true }, origin)
   } catch (error) {
     console.error('delete-account failed', {
       userId,
       message: error instanceof Error ? error.message : 'unknown error',
     })
-    return json({ ok: false, error: 'Não foi possível excluir a conta. Tente novamente.' }, 500)
+    return json({ ok: false, error: 'Não foi possível excluir a conta. Tente novamente.' }, origin, 500)
   }
 })
