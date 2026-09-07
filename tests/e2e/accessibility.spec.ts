@@ -1,7 +1,7 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
-async function enterDemo(page) {
+async function enterDemo(page: Page) {
   const nameInput = page.getByLabel('Seu nome')
   if (await nameInput.isVisible().catch(() => false)) {
     await nameInput.fill('Teste')
