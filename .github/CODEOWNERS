@@ -1,0 +1,7 @@
+# Security-sensitive and production configuration changes require the maintainer.
+* @annygabb
+/.github/ @annygabb
+/supabase/ @annygabb
+/src/infrastructure/ @annygabb
+/src/features/auth/ @annygabb
+/SECURITY.md @annygabb
