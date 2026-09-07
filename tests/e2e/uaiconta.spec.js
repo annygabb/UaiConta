@@ -22,7 +22,7 @@ async function resetDemo(page) {
 
 async function openTransactionForm(page) {
   await page.getByRole('button', { name: 'Adicionar', exact: true }).first().click()
-  await expect(page.getByRole('dialog', { name: /Movimentação/i })).toBeVisible()
+  await expect(page.getByLabel('Valor')).toBeVisible()
 }
 
 test.beforeEach(async ({ page }) => resetDemo(page))
