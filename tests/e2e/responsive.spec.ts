@@ -6,12 +6,21 @@ const viewports = [
   [1440, 900], [1600, 900], [1920, 1080], [2560, 1440],
 ] as const
 
+async function enterDemo(page) {
+  const nameInput = page.getByLabel('Seu nome')
+  if (await nameInput.isVisible().catch(() => false)) {
+    await nameInput.fill('Teste')
+    await page.getByRole('button', { name: /Entrar no meu painel/i }).click()
+  }
+  const skip = page.getByRole('button', { name: 'Prefiro cadastrar depois' })
+  if (await skip.isVisible().catch(() => false)) await skip.click()
+}
+
 for (const [width, height] of viewports) {
   test(`dashboard sem overflow em ${width}x${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height })
     await page.goto('/dashboard')
-    const skip = page.getByRole('button', { name: 'Prefiro cadastrar depois' })
-    if (await skip.isVisible().catch(() => false)) await skip.click()
+    await enterDemo(page)
     await expect(page.locator('body')).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)
     expect(overflow).toBe(false)
@@ -21,7 +30,6 @@ for (const [width, height] of viewports) {
 test('mobile landscape mantém navegação e sem overflow', async ({ page }) => {
   await page.setViewportSize({ width: 844, height: 390 })
   await page.goto('/dashboard')
-  const skip = page.getByRole('button', { name: 'Prefiro cadastrar depois' })
-  if (await skip.isVisible().catch(() => false)) await skip.click()
+  await enterDemo(page)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
 })

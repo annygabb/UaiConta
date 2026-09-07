@@ -1,11 +1,23 @@
 import { expect, test } from '@playwright/test'
 
-async function resetDemo(page) {
-  await page.goto('/dashboard')
-  await page.evaluate(() => localStorage.clear())
-  await page.reload()
+async function enterDemo(page) {
+  const nameInput = page.getByLabel('Seu nome')
+  if (await nameInput.isVisible().catch(() => false)) {
+    await nameInput.fill('Teste')
+    await page.getByRole('button', { name: /Entrar no meu painel/i }).click()
+  }
   const skip = page.getByRole('button', { name: 'Prefiro cadastrar depois' })
   if (await skip.isVisible().catch(() => false)) await skip.click()
+}
+
+async function resetDemo(page) {
+  await page.goto('/dashboard')
+  await page.evaluate(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
+  await page.reload()
+  await enterDemo(page)
 }
 
 test.beforeEach(async ({ page }) => resetDemo(page))
@@ -44,11 +56,13 @@ test('adiciona uma despesa e mantém os gráficos no mesmo período', async ({ p
   await page.getByRole('button', { name: 'Adicionar movimentação' }).last().click()
   await expect(page.getByRole('button', { name: /Abrir detalhes de Gastos/ })).toContainText('R$ 125,90')
   await expect(page.getByText('Gastos por categoria')).toBeVisible()
-  await expect(page.getByText('Pix x cartão')).toBeVisible()
+  await expect(page.getByText('Pix e cartões')).toBeVisible()
 })
 
 test('rota direta funciona após refresh', async ({ page }) => {
   await page.goto('/analises')
+  await enterDemo(page)
   await page.reload()
+  await enterDemo(page)
   await expect(page.getByRole('heading', { name: 'Análises' })).toBeVisible()
 })
