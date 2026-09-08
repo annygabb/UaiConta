@@ -5,13 +5,27 @@ import UaiConta from './App.jsx'
 import './index.css'
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js').catch(() => undefined))
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/service-worker.js', { updateViaCache: 'none' })
+      .then((registration) => registration.update().catch(() => undefined))
+      .catch(() => undefined)
+  })
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+const root = document.getElementById('root')
+ReactDOM.createRoot(root).render(
   <React.StrictMode>
     <BrowserRouter>
       <UaiConta />
     </BrowserRouter>
   </React.StrictMode>,
 )
+
+// The production CSP intentionally blocks inline scripts. Remove the static
+// mobile splash from this external module so Safari can never remain trapped
+// behind the startup screen after React has mounted.
+const splash = document.getElementById('uai-mobile-splash')
+if (splash) {
+  window.setTimeout(() => splash.remove(), 1700)
+}
