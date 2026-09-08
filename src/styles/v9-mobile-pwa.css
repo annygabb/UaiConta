@@ -1,0 +1,95 @@
+/* UaiConta V9 — mobile/PWA polish, auth fixes and stable period picker */
+
+/* Auth cleanup requested in production feedback. */
+.auth-proof-row{display:none!important}
+.auth-hero-copy,.auth-hero-copy h1,.auth-hero-copy h1 .shimmering-text{overflow:visible!important}
+.auth-hero-copy h1{padding-right:.12em!important;max-width:min(780px,100%)!important}
+.auth-hero-copy h1 .shimmering-text{display:inline-block!important;padding-right:.08em!important}
+
+/* Dashboard: keep the financial line, remove the rotating coin from Sobra prevista. */
+.coin-3d,.coin-orbit,.coin-floor-glow{display:none!important}
+.coin-financial-wrap{min-width:0!important;overflow:hidden!important}
+.coin-stage{min-height:210px!important;overflow:hidden!important}
+.coin-market-graph{left:50%!important;top:50%!important;width:min(430px,96%)!important;height:170px!important;opacity:.95!important;transform:translate(-50%,-50%)!important;mask-image:linear-gradient(90deg,transparent 0,#000 7%,#000 93%,transparent 100%)!important}
+.coin-copy{position:relative!important;z-index:4!important}
+
+/* Top period control: arrows + icon + month stay visible in one stable pill. */
+.topbar .period-selector-v6{display:grid!important;grid-template-columns:44px minmax(150px,1fr) 44px!important;align-items:center!important;width:min(310px,100%)!important;min-width:238px!important;border:1px solid rgba(220,181,239,.10)!important;border-radius:18px!important;background:linear-gradient(180deg,rgba(30,18,39,.92),rgba(17,11,23,.96))!important;box-shadow:inset 0 1px rgba(255,255,255,.035),0 12px 30px rgba(0,0,0,.14)!important;overflow:visible!important}
+.topbar .period-selector-v6 .period-shift,.topbar .period-selector-v6 .period-center{height:54px!important;min-height:54px!important;border:0!important;background:transparent!important;box-shadow:none!important;margin:0!important}
+.topbar .period-selector-v6 .period-shift{display:grid!important;place-items:center!important;width:44px!important;padding:0!important;color:#f8f1fb!important}
+.topbar .period-selector-v6 .period-center{width:100%!important;min-width:0!important;max-width:none!important;padding:0 8px!important;gap:8px!important;color:#f8f1fb!important}
+.topbar .period-selector-v6 .period-center span{display:block!important;overflow:visible!important;text-overflow:clip!important;white-space:nowrap!important;font-size:12px!important;font-weight:750!important;line-height:1!important}
+.topbar .period-selector-v6 .period-center svg{width:17px!important;height:17px!important;color:#d7c1e3!important;stroke:#d7c1e3!important}
+.topbar .period-selector-v6 .period-shift:hover,.topbar .period-selector-v6 .period-center:hover{background:rgba(177,118,205,.09)!important}
+
+/* Wheel popover: remove the floating selection band that was covering month/year rows. */
+.period-wheel-popover{width:min(390px,calc(100vw - 24px))!important;padding:18px!important;border-radius:22px!important;overflow:hidden!important}
+.period-wheel-popover .wheel-heading{display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important;padding:0 8px 8px!important;color:#9f93a7!important;font-size:10px!important;letter-spacing:.08em!important;text-transform:uppercase!important}
+.period-wheel-grid{position:relative!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important;height:238px!important;min-height:238px!important;padding:0!important;background:rgba(7,4,10,.34)!important;border:1px solid rgba(214,170,234,.08)!important;border-radius:18px!important;overflow:hidden!important}
+.period-wheel-grid .wheel-selection-band{display:none!important}
+.period-wheel-grid .wheel-column{position:relative!important;height:238px!important;min-width:0!important;padding:0 6px!important;scroll-snap-type:y proximity!important}
+.period-wheel-grid .wheel-column:first-child{border-right:1px solid rgba(255,255,255,.045)!important}
+.period-wheel-grid .wheel-column button{display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;height:48px!important;min-height:48px!important;margin:0!important;padding:0 8px!important;scroll-snap-align:center!important;border:1px solid transparent!important;border-radius:12px!important;font-size:13px!important;line-height:1!important;white-space:nowrap!important}
+.period-wheel-grid .wheel-column button.active{position:relative!important;z-index:2!important;background:linear-gradient(135deg,rgba(111,79,169,.58),rgba(123,51,126,.58))!important;border-color:rgba(222,185,239,.16)!important;box-shadow:inset 0 1px rgba(255,255,255,.05),0 8px 22px rgba(69,28,84,.16)!important;color:#fff!important}
+.period-wheel-actions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:10px!important;margin-top:14px!important;padding-top:0!important;background:none!important}
+.period-wheel-actions>button{min-height:48px!important;width:100%!important}
+
+/* Global responsive hardening: no horizontal page drift on small screens. */
+html,body,#root{max-width:100%;min-width:0;overflow-x:hidden}
+.app-shell,.app-column,.content,.topbar,.hero-grid,.metric-grid,.dashboard-grid,.panel,.chart-large,.chart-medium,.chart-donut,.payment-folder-grid{min-width:0!important;max-width:100%!important}
+.recharts-responsive-container{min-width:0!important;max-width:100%!important}
+
+@media(max-width:900px){
+  .auth-page-v6{display:block!important;min-height:100dvh!important;overflow-x:hidden!important}
+  .auth-visual-v6{padding:28px 20px 18px!important;min-height:auto!important;overflow:visible!important}
+  .auth-hero-copy{position:relative!important;z-index:3!important;max-width:100%!important}
+  .auth-hero-copy h1{font-size:clamp(34px,9vw,58px)!important;line-height:.98!important;letter-spacing:-.045em!important}
+  .auth-hero-coin{opacity:.24!important;right:-30vw!important;pointer-events:none!important}
+  .auth-card-v6{width:calc(100% - 24px)!important;max-width:620px!important;margin:12px auto calc(28px + env(safe-area-inset-bottom))!important}
+  .topbar{gap:10px!important;padding-left:14px!important;padding-right:14px!important}
+  .topbar .period-selector-v6{min-width:220px!important;width:min(280px,46vw)!important}
+  .dashboard-grid,.dashboard-grid-main,.dashboard-grid-secondary{grid-template-columns:1fr!important}
+  .dashboard-grid .span-2{grid-column:auto!important}
+}
+
+@media(max-width:720px){
+  .app-column{width:100%!important;margin-left:0!important;padding-bottom:calc(82px + env(safe-area-inset-bottom))!important}
+  .sidebar{display:none!important}
+  .mobile-nav{display:grid!important;padding-bottom:max(8px,env(safe-area-inset-bottom))!important}
+  .topbar{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;min-height:auto!important;padding-top:max(10px,env(safe-area-inset-top))!important;padding-bottom:10px!important}
+  .topbar-title{grid-column:1!important;grid-row:1!important;min-width:0!important}
+  .topbar .period-selector-v6{grid-column:1 / -1!important;grid-row:2!important;width:100%!important;min-width:0!important;grid-template-columns:42px minmax(0,1fr) 42px!important}
+  .topbar .period-selector-v6 .period-shift,.topbar .period-selector-v6 .period-center{height:50px!important;min-height:50px!important}
+  .topbar .top-add{grid-column:2!important;grid-row:1!important;justify-self:end!important;min-width:44px!important;height:44px!important;padding:0 13px!important}
+  .topbar .top-add span{display:none!important}
+  .content{padding-left:14px!important;padding-right:14px!important}
+  .hero-grid{grid-template-columns:1fr!important;gap:14px!important}
+  .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+  .panel{padding-left:14px!important;padding-right:14px!important}
+  .payment-folder-grid{grid-template-columns:1fr!important}
+  .coin-stage{min-height:180px!important}
+  .coin-market-graph{height:145px!important;width:100%!important}
+}
+
+@media(max-width:620px){
+  .period-wheel-popover{top:auto!important;bottom:max(10px,env(safe-area-inset-bottom))!important;left:50%!important;transform:translateX(-50%)!important;width:calc(100vw - 16px)!important;max-height:min(560px,calc(100dvh - 20px))!important;padding:14px!important;border-radius:24px!important}
+  .period-wheel-grid{height:220px!important;min-height:220px!important}
+  .period-wheel-grid .wheel-column{height:220px!important}
+  .period-wheel-grid .wheel-column button{height:46px!important;min-height:46px!important;font-size:12px!important}
+  .auth-visual-v6{padding-inline:16px!important}
+  .auth-hero-copy h1{font-size:clamp(31px,10vw,46px)!important;line-height:1!important}
+  .auth-hero-copy p{max-width:94%!important}
+  .auth-card-v6{width:calc(100% - 16px)!important;padding:17px!important}
+}
+
+@media(max-width:440px){
+  .metric-grid{grid-template-columns:1fr!important}
+  .topbar-title span,.topbar-title strong{max-width:52vw!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+  .topbar .period-selector-v6 .period-center span{font-size:11px!important}
+  .period-wheel-actions{grid-template-columns:1fr!important}
+  .auth-hero-copy h1{font-size:clamp(29px,10.5vw,40px)!important;letter-spacing:-.035em!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .coin-market-graph *{animation:none!important}
+}
