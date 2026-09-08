@@ -1,13 +1,18 @@
 {
+  "id": "/",
   "name": "UaiConta",
   "short_name": "UaiConta",
+  "description": "Controle pessoal de receitas, gastos, investimentos e análises.",
   "start_url": "/dashboard",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
   "background_color": "#09070D",
   "theme_color": "#09070D",
-  "description": "Controle pessoal de receitas, gastos, investimentos e análises.",
+  "categories": ["finance", "productivity"],
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }
