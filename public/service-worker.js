@@ -1,4 +1,4 @@
-const CACHE = "uaiconta-shell-v4";
+const CACHE = "uaiconta-shell-v5";
 const SHELL = ["/", "/dashboard", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/brand/uai-mark.svg"];
 
 self.addEventListener("install", (event) => {
@@ -22,8 +22,6 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) return;
 
-  // Dados e autenticação continuam sempre fora do cache. Para navegação e assets,
-  // prioriza a rede e usa o shell apenas como fallback offline.
   event.respondWith(
     fetch(request, { cache: request.mode === "navigate" ? "no-store" : "default" })
       .catch(() => caches.match(request).then((cached) => cached || caches.match("/")))
