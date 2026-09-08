@@ -17,7 +17,7 @@
     <style>
       #uai-mobile-splash{display:none}
       @media(max-width:768px){
-        #uai-mobile-splash{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,#2a1034 0,#130918 38%,#09070d 76%);color:#fff;transition:opacity .34s ease,visibility .34s ease}
+        #uai-mobile-splash{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,#2a1034 0,#130918 38%,#09070d 76%);color:#fff;transition:opacity .34s ease,visibility .34s ease;pointer-events:none}
         #uai-mobile-splash.uai-splash-leave{opacity:0;visibility:hidden;pointer-events:none}
         .uai-splash-inner{display:grid;place-items:center;gap:18px;padding:24px;text-align:center}
         .uai-splash-mark{width:126px;height:126px;filter:drop-shadow(0 16px 34px rgba(123,51,126,.38))}
@@ -56,21 +56,43 @@
           splash?.remove();
           return;
         }
+
         const startedAt = performance.now();
         const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const root = document.getElementById('root');
         let closed = false;
+        let observer;
+
         const closeSplash = () => {
           if (closed) return;
           closed = true;
-          const minDuration = reduced ? 120 : 1350;
+          observer?.disconnect();
+          const minDuration = reduced ? 80 : 950;
           const wait = Math.max(0, minDuration - (performance.now() - startedAt));
           window.setTimeout(() => {
             splash.classList.add('uai-splash-leave');
             window.setTimeout(() => splash.remove(), reduced ? 0 : 380);
           }, wait);
         };
-        window.addEventListener('load', closeSplash, { once: true });
-        window.setTimeout(closeSplash, 5000);
+
+        // React can close the splash explicitly, while this observer guarantees
+        // that the authentication UI is never hidden after the app mounts.
+        window.__uaiCloseMobileSplash = closeSplash;
+        if (root) {
+          if (root.childElementCount > 0) closeSplash();
+          else {
+            observer = new MutationObserver(() => {
+              if (root.childElementCount > 0) closeSplash();
+            });
+            observer.observe(root, { childList: true });
+          }
+        }
+
+        if (document.readyState === 'complete') closeSplash();
+        else window.addEventListener('load', closeSplash, { once: true });
+
+        // Hard safety cap for Safari/PWA: the splash can never trap the user.
+        window.setTimeout(closeSplash, 2600);
       })();
     </script>
     <script type="module" src="/src/main.jsx"></script>
