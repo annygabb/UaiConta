@@ -9,6 +9,7 @@
 @import "./styles/v7-fixes.css";
 @import "./styles/v8-calendar-motion.css";
 @import "./styles/v9-mobile-pwa.css";
+@import "./styles/v9-mobile-auth-fix.css";
 
 @tailwind base;
 @tailwind components;
