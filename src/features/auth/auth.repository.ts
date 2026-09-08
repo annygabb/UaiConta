@@ -3,6 +3,8 @@ import { getCurrentSession, getSupabaseClient, isSupabaseConfigured } from '../.
 
 export type AuthResult = Session | { pendingConfirmation: true; user: unknown }
 
+const AUTH_BOOT_TIMEOUT_MS = 3500
+
 function clockSkewError(error: unknown) {
   const message = String((error as { message?: string })?.message || '')
   return /JWT issued at future|issued in the future|not valid yet/i.test(message)
@@ -24,7 +26,7 @@ async function throwAuthError(error: unknown): Promise<never> {
   throw error
 }
 
-export async function initializeAuth(): Promise<Session | null> {
+async function initializeAuthInternal(): Promise<Session | null> {
   const client = getSupabaseClient()
   try {
     const cached = await getCurrentSession()
@@ -51,6 +53,15 @@ export async function initializeAuth(): Promise<Session | null> {
     }
     throw error
   }
+}
+
+export async function initializeAuth(): Promise<Session | null> {
+  // Mobile Safari can occasionally leave storage/network-backed auth restoration
+  // pending for a long time. Never let that bootstrap block login/signup forever.
+  return Promise.race([
+    initializeAuthInternal(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), AUTH_BOOT_TIMEOUT_MS)),
+  ])
 }
 
 export function onAuthChanged(callback: (session: Session | null) => void) {
