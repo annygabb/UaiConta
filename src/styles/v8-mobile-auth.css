@@ -1,0 +1,141 @@
+/* UaiConta V8 — mobile authentication visibility and layout stability.
+   Keep the login/create-account form reachable even on mobile browsers that
+   expose a wider CSS viewport or request a desktop-like layout. */
+
+@media (max-width: 1100px), (hover: none) and (pointer: coarse) {
+  .auth-page.auth-page-v6 {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 100dvh !important;
+    height: auto !important;
+    overflow-x: clip !important;
+    overflow-y: auto !important;
+    align-items: stretch !important;
+  }
+
+  .auth-page-v6 .auth-visual.auth-visual-v6 {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 92px !important;
+    height: auto !important;
+    padding: calc(16px + env(safe-area-inset-top)) 18px 14px !important;
+    justify-content: flex-start !important;
+    align-items: flex-start !important;
+    overflow: hidden !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, .06) !important;
+    background: linear-gradient(180deg, rgba(18, 11, 25, .98), rgba(10, 7, 14, .98)) !important;
+  }
+
+  .auth-page-v6 .auth-visual .uai-brand-logo {
+    position: relative !important;
+    z-index: 5 !important;
+  }
+
+  .auth-page-v6 .auth-visual .uai-brand-logo img {
+    width: 48px !important;
+    height: 48px !important;
+    object-fit: contain !important;
+  }
+
+  .auth-page-v6 .auth-hero-copy,
+  .auth-page-v6 .auth-proof-row,
+  .auth-page-v6 .auth-hero-coin,
+  .auth-page-v6 .auth-aurora,
+  .auth-page-v6 .auth-grid-glow {
+    display: none !important;
+  }
+
+  .auth-page-v6 .auth-card.auth-card-v6 {
+    display: block !important;
+    flex: 1 0 auto !important;
+    align-self: stretch !important;
+    justify-self: stretch !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    min-height: calc(100dvh - 92px) !important;
+    max-height: none !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 22px clamp(16px, 5vw, 32px) calc(30px + env(safe-area-inset-bottom)) !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: radial-gradient(circle at 80% 4%, rgba(123, 51, 126, .10), transparent 32%), #0b0810 !important;
+    box-shadow: none !important;
+  }
+
+  .auth-page-v6 .auth-mode-tabs.auth-mode-tabs-v6 {
+    position: relative !important;
+    top: auto !important;
+    z-index: 2 !important;
+    width: 100% !important;
+    margin: 0 0 18px !important;
+  }
+
+  .auth-page-v6 .auth-form-shell,
+  .auth-page-v6 .auth-card-heading,
+  .auth-page-v6 form {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .auth-page-v6 .motion-input-control {
+    font-size: 16px !important;
+  }
+
+  .auth-page-v6 .auth-submit,
+  .auth-page-v6 .auth-mode-tabs button,
+  .auth-page-v6 .auth-switch,
+  .auth-page-v6 .auth-eye {
+    min-height: 48px !important;
+  }
+}
+
+@media (max-width: 620px) {
+  .auth-page-v6 .auth-card.auth-card-v6 {
+    padding-inline: 16px !important;
+  }
+
+  .auth-page-v6 .auth-card-heading h2 {
+    font-size: clamp(25px, 8vw, 31px) !important;
+    line-height: 1.04 !important;
+  }
+
+  .auth-page-v6 .auth-card-heading p {
+    font-size: 13px !important;
+    line-height: 1.55 !important;
+  }
+
+  .auth-page-v6 .password-strength ul {
+    grid-template-columns: 1fr !important;
+  }
+
+  .auth-page-v6 .auth-terms-row {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 10px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .auth-page-v6 .auth-visual.auth-visual-v6 {
+    min-height: 82px !important;
+    padding-inline: 14px !important;
+  }
+
+  .auth-page-v6 .auth-card.auth-card-v6 {
+    min-height: calc(100dvh - 82px) !important;
+    padding: 18px 12px calc(26px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .auth-page-v6 .auth-mode-tabs.auth-mode-tabs-v6 {
+    gap: 3px !important;
+    padding: 3px !important;
+  }
+}
