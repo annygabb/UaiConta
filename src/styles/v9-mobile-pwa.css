@@ -19,7 +19,7 @@
 .topbar .period-selector-v6 .period-shift{display:grid!important;place-items:center!important;width:44px!important;padding:0!important;color:#f8f1fb!important}
 .topbar .period-selector-v6 .period-center{width:100%!important;min-width:0!important;max-width:none!important;padding:0 8px!important;gap:8px!important;color:#f8f1fb!important}
 .topbar .period-selector-v6 .period-center span{display:block!important;overflow:visible!important;text-overflow:clip!important;white-space:nowrap!important;font-size:12px!important;font-weight:750!important;line-height:1!important}
-.topbar .period-selector-v6 .period-center svg{width:17px!important;height:17px!important;color:#d7c1e3!important;stroke:#d7c1e3!important}
+.topbar .period-selector-v6 .period-center svg{width:17px!important;height:17px!important;color:#fff!important;stroke:#fff!important}
 .topbar .period-selector-v6 .period-shift:hover,.topbar .period-selector-v6 .period-center:hover{background:rgba(177,118,205,.09)!important}
 
 /* Wheel popover: remove the floating selection band that was covering month/year rows. */
