@@ -5,13 +5,74 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#09070D" />
     <meta name="description" content="UaiConta — painel financeiro pessoal para receitas, gastos, investimentos e análises." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="UaiConta" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
-    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
     <title>UaiConta — Finanças pessoais</title>
+    <style>
+      #uai-mobile-splash{display:none}
+      @media(max-width:768px){
+        #uai-mobile-splash{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,#2a1034 0,#130918 38%,#09070d 76%);color:#fff;transition:opacity .34s ease,visibility .34s ease}
+        #uai-mobile-splash.uai-splash-leave{opacity:0;visibility:hidden;pointer-events:none}
+        .uai-splash-inner{display:grid;place-items:center;gap:18px;padding:24px;text-align:center}
+        .uai-splash-mark{width:126px;height:126px;filter:drop-shadow(0 16px 34px rgba(123,51,126,.38))}
+        .uai-splash-outline{fill:none;stroke:#f4e8fa;stroke-width:3.25;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:420;stroke-dashoffset:420;animation:uaiLogoDraw 1.2s cubic-bezier(.45,0,.2,1) forwards}
+        .uai-splash-outline.secondary{stroke-width:2.8;stroke-dasharray:120;stroke-dashoffset:120;animation-duration:.72s;animation-delay:.38s}
+        .uai-splash-fill{fill:#f4e8fa;opacity:0;animation:uaiLogoFill .34s ease .86s forwards}
+        .uai-splash-fill.secondary{fill:none;stroke:#fff;stroke-width:6;stroke-linecap:round;opacity:0;animation:uaiLogoFill .34s ease 1s forwards}
+        .uai-splash-name{font:800 21px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:-.03em}
+        .uai-splash-status{font:500 11px/1.35 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#aa9caf;letter-spacing:.04em}
+        @keyframes uaiLogoDraw{to{stroke-dashoffset:0}}
+        @keyframes uaiLogoFill{to{opacity:1}}
+      }
+      @media(max-width:768px) and (prefers-reduced-motion:reduce){
+        .uai-splash-outline{stroke-dashoffset:0;animation:none}.uai-splash-fill{opacity:1;animation:none}#uai-mobile-splash{transition:none}
+      }
+    </style>
   </head>
   <body>
+    <div id="uai-mobile-splash" role="status" aria-label="Carregando UaiConta">
+      <div class="uai-splash-inner">
+        <svg class="uai-splash-mark" viewBox="0 0 96 96" aria-hidden="true" focusable="false">
+          <path class="uai-splash-outline" d="M22 20v38c0 13 9 21 24 21 12 0 21-5 28-15l-9-7c-5 7-11 10-18 10-8 0-12-4-12-11V20H22Zm34 0v32l12-8V20H56Zm16 0v20l12-8V20H72Z" />
+          <path class="uai-splash-outline secondary" d="M29 70c12 9 29 8 42-7" />
+          <path class="uai-splash-fill" d="M22 20v38c0 13 9 21 24 21 12 0 21-5 28-15l-9-7c-5 7-11 10-18 10-8 0-12-4-12-11V20H22Zm34 0v32l12-8V20H56Zm16 0v20l12-8V20H72Z" />
+          <path class="uai-splash-fill secondary" d="M29 70c12 9 29 8 42-7" />
+        </svg>
+        <strong class="uai-splash-name">UaiConta</strong>
+        <span class="uai-splash-status">Organizando seu painel</span>
+      </div>
+    </div>
     <div id="root"></div>
+    <script>
+      (() => {
+        const splash = document.getElementById('uai-mobile-splash');
+        if (!splash || !window.matchMedia('(max-width: 768px)').matches) {
+          splash?.remove();
+          return;
+        }
+        const startedAt = performance.now();
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        let closed = false;
+        const closeSplash = () => {
+          if (closed) return;
+          closed = true;
+          const minDuration = reduced ? 120 : 1350;
+          const wait = Math.max(0, minDuration - (performance.now() - startedAt));
+          window.setTimeout(() => {
+            splash.classList.add('uai-splash-leave');
+            window.setTimeout(() => splash.remove(), reduced ? 0 : 380);
+          }, wait);
+        };
+        window.addEventListener('load', closeSplash, { once: true });
+        window.setTimeout(closeSplash, 5000);
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
