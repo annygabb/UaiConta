@@ -17,8 +17,7 @@
     <style>
       #uai-mobile-splash{display:none}
       @media(max-width:768px){
-        #uai-mobile-splash{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,#2a1034 0,#130918 38%,#09070d 76%);color:#fff;transition:opacity .34s ease,visibility .34s ease;pointer-events:none}
-        #uai-mobile-splash.uai-splash-leave{opacity:0;visibility:hidden;pointer-events:none}
+        #uai-mobile-splash{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,#2a1034 0,#130918 38%,#09070d 76%);color:#fff;pointer-events:none;animation:uaiSplashAutoLeave .34s ease 1.35s forwards}
         .uai-splash-inner{display:grid;place-items:center;gap:18px;padding:24px;text-align:center}
         .uai-splash-mark{width:126px;height:126px;filter:drop-shadow(0 16px 34px rgba(123,51,126,.38))}
         .uai-splash-outline{fill:none;stroke:#f4e8fa;stroke-width:3.25;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:420;stroke-dashoffset:420;animation:uaiLogoDraw 1.2s cubic-bezier(.45,0,.2,1) forwards}
@@ -29,9 +28,10 @@
         .uai-splash-status{font:500 11px/1.35 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#aa9caf;letter-spacing:.04em}
         @keyframes uaiLogoDraw{to{stroke-dashoffset:0}}
         @keyframes uaiLogoFill{to{opacity:1}}
+        @keyframes uaiSplashAutoLeave{to{opacity:0;visibility:hidden}}
       }
       @media(max-width:768px) and (prefers-reduced-motion:reduce){
-        .uai-splash-outline{stroke-dashoffset:0;animation:none}.uai-splash-fill{opacity:1;animation:none}#uai-mobile-splash{transition:none}
+        .uai-splash-outline{stroke-dashoffset:0;animation:none}.uai-splash-fill{opacity:1;animation:none}#uai-mobile-splash{animation:uaiSplashAutoLeave 0s linear .2s forwards}
       }
     </style>
   </head>
@@ -49,52 +49,6 @@
       </div>
     </div>
     <div id="root"></div>
-    <script>
-      (() => {
-        const splash = document.getElementById('uai-mobile-splash');
-        if (!splash || !window.matchMedia('(max-width: 768px)').matches) {
-          splash?.remove();
-          return;
-        }
-
-        const startedAt = performance.now();
-        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const root = document.getElementById('root');
-        let closed = false;
-        let observer;
-
-        const closeSplash = () => {
-          if (closed) return;
-          closed = true;
-          observer?.disconnect();
-          const minDuration = reduced ? 80 : 950;
-          const wait = Math.max(0, minDuration - (performance.now() - startedAt));
-          window.setTimeout(() => {
-            splash.classList.add('uai-splash-leave');
-            window.setTimeout(() => splash.remove(), reduced ? 0 : 380);
-          }, wait);
-        };
-
-        // React can close the splash explicitly, while this observer guarantees
-        // that the authentication UI is never hidden after the app mounts.
-        window.__uaiCloseMobileSplash = closeSplash;
-        if (root) {
-          if (root.childElementCount > 0) closeSplash();
-          else {
-            observer = new MutationObserver(() => {
-              if (root.childElementCount > 0) closeSplash();
-            });
-            observer.observe(root, { childList: true });
-          }
-        }
-
-        if (document.readyState === 'complete') closeSplash();
-        else window.addEventListener('load', closeSplash, { once: true });
-
-        // Hard safety cap for Safari/PWA: the splash can never trap the user.
-        window.setTimeout(closeSplash, 2600);
-      })();
-    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
