@@ -8,6 +8,7 @@
 @import "./styles/v6-polish.css";
 @import "./styles/v7-fixes.css";
 @import "./styles/v8-calendar-motion.css";
+@import "./styles/v8-mobile-auth.css";
 
 @tailwind base;
 @tailwind components;
