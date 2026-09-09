@@ -11,6 +11,7 @@
 @import "./styles/v9-mobile-pwa.css";
 @import "./styles/v9-mobile-auth-fix.css";
 @import "./styles/v10-iphone-fixes.css";
+@import "./styles/v11-faceid-center.css";
 
 @tailwind base;
 @tailwind components;
