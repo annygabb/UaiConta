@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import UaiConta from './App.jsx'
+import GlobalBiometricLock from './components/GlobalBiometricLock.jsx'
 import './index.css'
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
@@ -18,6 +19,7 @@ ReactDOM.createRoot(root).render(
   <React.StrictMode>
     <BrowserRouter>
       <UaiConta />
+      <GlobalBiometricLock />
     </BrowserRouter>
   </React.StrictMode>,
 )
