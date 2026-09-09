@@ -18,7 +18,10 @@ export default [
     plugins: { 'react-hooks': reactHooks },
     rules: {
       ...js.configs.recommended.rules,
-      'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^(React|_)' }],
+      // Core no-unused-vars does not understand JSX component references without
+      // eslint-plugin-react's jsx-uses-vars rule. Keep it off for JSX files to
+      // avoid treating every rendered component/icon as an unused import.
+      'no-unused-vars': 'off',
       'no-empty': 'off',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
