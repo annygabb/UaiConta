@@ -1,0 +1,81 @@
+/* UaiConta V10 — iPhone login, biometria, topbar e import review hardening. */
+
+.auth-biometric-mobile{display:none}
+.biometric-inline-status{margin:0!important;width:100%}
+.biometric-settings-actions{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:10px!important}
+.biometric-enroll-btn{min-height:46px}
+
+@media(max-width:720px){
+  /* Biometric entry is intentionally mobile-first. */
+  .auth-biometric-mobile{display:grid;gap:12px;margin:2px 0 16px}
+  .auth-biometric-btn{
+    display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:58px;
+    padding:10px 16px;border:1px solid rgba(216,177,235,.18);border-radius:16px;
+    background:linear-gradient(135deg,rgba(111,79,169,.20),rgba(123,51,126,.24));
+    color:#fff;box-shadow:inset 0 1px rgba(255,255,255,.04);cursor:pointer
+  }
+  .auth-biometric-btn:disabled{opacity:.65;cursor:wait}
+  .auth-biometric-btn>span{display:grid;gap:2px;text-align:left}
+  .auth-biometric-btn strong{font-size:14px;line-height:1.1}
+  .auth-biometric-btn small{font-size:11px;color:#b9acbf;line-height:1.2}
+  .auth-biometric-divider{display:flex;align-items:center;gap:10px;color:#817588;font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+  .auth-biometric-divider::before,.auth-biometric-divider::after{content:"";height:1px;flex:1;background:rgba(255,255,255,.07)}
+
+  /* One compact header row: first name, centered period, add button. */
+  .topbar{
+    display:grid!important;
+    grid-template-columns:minmax(46px,.72fr) minmax(156px,1.35fr) 46px!important;
+    grid-template-rows:46px!important;
+    align-items:center!important;
+    gap:8px!important;
+    min-height:66px!important;
+    padding:calc(10px + env(safe-area-inset-top)) 12px 10px!important;
+    overflow:visible!important;
+  }
+  .topbar-title{
+    grid-column:1!important;grid-row:1!important;display:flex!important;align-items:center!important;
+    min-width:0!important;height:46px!important;margin:0!important
+  }
+  .topbar-title span{
+    display:block!important;max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important;
+    white-space:nowrap!important;font-size:13px!important;font-weight:750!important
+  }
+  .topbar-title strong{display:none!important}
+
+  .topbar .period-selector-v6{
+    grid-column:2!important;grid-row:1!important;justify-self:center!important;
+    width:min(210px,100%)!important;min-width:0!important;max-width:210px!important;
+    grid-template-columns:34px minmax(0,1fr) 34px!important;border-radius:15px!important
+  }
+  .topbar .period-selector-v6 .period-shift{
+    display:grid!important;width:34px!important;height:44px!important;min-height:44px!important
+  }
+  .topbar .period-selector-v6 .period-center{
+    height:44px!important;min-height:44px!important;padding:0 4px!important;gap:5px!important
+  }
+  .topbar .period-selector-v6 .period-center span{font-size:10.5px!important;letter-spacing:-.01em!important}
+  .topbar .period-selector-v6 .period-center svg{width:15px!important;height:15px!important;flex:0 0 auto!important}
+
+  .topbar .top-add{
+    grid-column:3!important;grid-row:1!important;justify-self:end!important;align-self:center!important;
+    width:46px!important;min-width:46px!important;height:46px!important;min-height:46px!important;padding:0!important;border-radius:14px!important
+  }
+  .topbar .top-add span{display:none!important}
+
+  /* The month/year picker opens centered instead of spilling off-screen. */
+  .period-wheel-popover{
+    position:fixed!important;left:50%!important;top:50%!important;right:auto!important;bottom:auto!important;
+    transform:translate(-50%,-50%)!important;width:calc(100vw - 24px)!important;max-width:390px!important;
+    max-height:calc(100dvh - 32px)!important;z-index:10050!important
+  }
+
+  .import-sheet-v5{max-width:100vw!important;width:100%!important}
+  .import-sheet-v5 .sheet-footer{padding-bottom:max(14px,env(safe-area-inset-bottom))!important}
+}
+
+@media(max-width:390px){
+  .topbar{grid-template-columns:minmax(42px,.55fr) minmax(148px,1.45fr) 44px!important;gap:6px!important;padding-inline:9px!important}
+  .topbar .period-selector-v6{max-width:190px!important;grid-template-columns:30px minmax(0,1fr) 30px!important}
+  .topbar .period-selector-v6 .period-shift{width:30px!important}
+  .topbar-title span{font-size:12px!important}
+}
