@@ -1,0 +1,119 @@
+/* UaiConta V11 — Face ID app lock + exact mobile period centering. */
+
+.biometric-app-lock{
+  position:fixed;
+  inset:0;
+  z-index:2147483000;
+  display:grid;
+  place-items:center;
+  min-height:100dvh;
+  overflow:hidden;
+  color:#fff;
+  isolation:isolate;
+  background:rgba(7,7,9,.18);
+}
+.biometric-app-lock-glass{
+  position:absolute;
+  inset:-28px;
+  z-index:-2;
+  background:
+    radial-gradient(circle at 22% 18%,rgba(37,92,77,.34),transparent 28%),
+    radial-gradient(circle at 82% 17%,rgba(109,28,49,.34),transparent 30%),
+    radial-gradient(circle at 72% 78%,rgba(112,58,22,.38),transparent 34%),
+    linear-gradient(180deg,rgba(17,19,20,.86),rgba(10,10,12,.94));
+  backdrop-filter:blur(34px) saturate(.72);
+  -webkit-backdrop-filter:blur(34px) saturate(.72);
+  transform:scale(1.08);
+}
+.biometric-app-lock::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  background:rgba(9,10,11,.42);
+  pointer-events:none;
+}
+.biometric-app-lock-content{
+  width:min(86vw,420px);
+  min-height:420px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  gap:22px;
+  padding:78px 22px 28px;
+  text-align:center;
+}
+.biometric-app-lock-icon{
+  color:#1994ff;
+  filter:drop-shadow(0 8px 22px rgba(25,148,255,.18));
+}
+.biometric-app-lock-content h1{
+  margin:0;
+  margin-top:clamp(170px,30dvh,300px);
+  max-width:340px;
+  font-size:clamp(27px,7vw,39px);
+  line-height:1.28;
+  letter-spacing:-.035em;
+  font-weight:500;
+  text-wrap:balance;
+}
+.biometric-app-lock-error{
+  margin:-6px 0 0;
+  max-width:320px;
+  color:rgba(255,255,255,.72);
+  font-size:13px;
+  line-height:1.5;
+}
+.biometric-app-lock-retry{
+  min-height:46px;
+  padding:0 20px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;
+  background:rgba(255,255,255,.08);
+  color:#fff;
+  font:inherit;
+  font-size:14px;
+  font-weight:700;
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+
+@media(min-width:821px){
+  .biometric-app-lock{display:none!important}
+}
+
+@media(max-width:720px){
+  /* Equal side tracks keep the month selector mathematically centered on screen. */
+  .topbar{
+    grid-template-columns:minmax(0,1fr) minmax(0,210px) minmax(0,1fr)!important;
+    column-gap:8px!important;
+  }
+  .topbar-title{
+    grid-column:1!important;
+    justify-self:start!important;
+    max-width:100%!important;
+  }
+  .topbar .period-selector-v6{
+    grid-column:2!important;
+    justify-self:center!important;
+    width:100%!important;
+    max-width:210px!important;
+    margin-inline:auto!important;
+  }
+  .topbar .top-add{
+    grid-column:3!important;
+    justify-self:end!important;
+  }
+}
+
+@media(max-width:390px){
+  .topbar{
+    grid-template-columns:minmax(0,1fr) minmax(0,190px) minmax(0,1fr)!important;
+  }
+  .topbar .period-selector-v6{max-width:190px!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .biometric-app-lock *{animation:none!important;transition:none!important}
+}
