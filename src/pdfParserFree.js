@@ -1,9 +1,6 @@
-import * as pdfjsLib from 'pdfjs-dist/build/pdf.mjs'
-import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url'
+import pdfjsWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.mjs?url'
 import { CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from './constants.js'
 import { isoDate, normalizeDescription, uid } from './utils.js'
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
 
 const MONTHS_PT = {
   jan: '01', fev: '02', mar: '03', abr: '04', mai: '05', jun: '06',
@@ -37,7 +34,6 @@ const PAYMENT_KEYWORDS = {
   Transferência: ['transferencia', 'transferência', 'ted ', 'doc '],
 }
 
-// Textos comuns em faturas/extratos que contêm datas/valores, mas não são compras.
 const INFORMATIONAL_PATTERNS = [
   /limite\s+(total|dispon[ií]vel).*cart[aã]o/i,
   /valor\s+m[ií]nimo/i,
@@ -59,6 +55,43 @@ const HEADER_PATTERNS = [
   /^lan[cç]amentos?/i,
   /^resumo\s+da\s+fatura/i,
 ]
+
+let pdfjsPromise
+
+function ensureSafariCompatibility() {
+  if (typeof Promise.withResolvers !== 'function') {
+    Promise.withResolvers = function withResolvers() {
+      let resolve
+      let reject
+      const promise = new Promise((res, rej) => {
+        resolve = res
+        reject = rej
+      })
+      return { promise, resolve, reject }
+    }
+  }
+}
+
+async function getPdfJs() {
+  ensureSafariCompatibility()
+  if (!pdfjsPromise) {
+    pdfjsPromise = import('pdfjs-dist/legacy/build/pdf.mjs').then((module) => {
+      module.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
+      return module
+    })
+  }
+  return pdfjsPromise
+}
+
+function readFileAsArrayBuffer(file) {
+  if (typeof file?.arrayBuffer === 'function') return file.arrayBuffer()
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(reader.error || new Error('Não foi possível ler o arquivo no Safari.'))
+    reader.onload = () => resolve(reader.result)
+    reader.readAsArrayBuffer(file)
+  })
+}
 
 function padded(text) {
   return ` ${String(text).toLowerCase().replace(/\s+/g, ' ')} `
@@ -119,14 +152,17 @@ export function displayDescriptionFromRaw(raw) {
 }
 
 async function extractRawText(file) {
-  const buffer = await file.arrayBuffer()
-  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise
+  const pdfjsLib = await getPdfJs()
+  const buffer = await readFileAsArrayBuffer(file)
+  const data = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer)
+  const loadingTask = pdfjsLib.getDocument({ data })
+  const pdf = await loadingTask.promise
   let fullText = ''
   try {
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber)
       const content = await page.getTextContent()
-      fullText += `${content.items.map((item) => item.str).join(' ')}\n`
+      fullText += `${content.items.map((item) => item.str || '').join(' ')}\n`
       page.cleanup?.()
     }
   } finally {
@@ -231,6 +267,14 @@ export function parseFinancialText(text, options = {}) {
 export async function extractTransactionsFromPDFFree(file) {
   if (!file || (file.type !== 'application/pdf' && !file.name?.toLowerCase().endsWith('.pdf'))) throw new Error('Selecione um arquivo PDF válido.')
   if (file.size > 25 * 1024 * 1024) throw new Error(`${file.name}: o PDF ultrapassa 25 MB.`)
-  const text = await extractRawText(file)
-  return parseFinancialText(text, { sourceFile: file.name })
+  try {
+    const text = await extractRawText(file)
+    return parseFinancialText(text, { sourceFile: file.name })
+  } catch (error) {
+    const message = String(error?.message || '')
+    if (/undefined is not a function|withResolvers|arrayBuffer/i.test(message)) {
+      throw new Error(`${file.name}: o Safari não conseguiu ler este PDF. Atualize o UaiConta e tente novamente.`)
+    }
+    throw error
+  }
 }
