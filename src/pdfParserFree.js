@@ -273,7 +273,7 @@ export async function extractTransactionsFromPDFFree(file) {
   } catch (error) {
     const message = String(error?.message || '')
     if (/undefined is not a function|withResolvers|arrayBuffer/i.test(message)) {
-      throw new Error(`${file.name}: o Safari não conseguiu ler este PDF. Atualize o UaiConta e tente novamente.`)
+      throw new Error(`${file.name}: o Safari não conseguiu ler este PDF. Atualize o UaiConta e tente novamente.`, { cause: error })
     }
     throw error
   }
