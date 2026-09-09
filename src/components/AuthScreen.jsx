@@ -4,8 +4,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { gsap } from 'gsap'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Link } from 'react-router-dom'
-import { IconEye, IconEyeOff, IconKey, IconLoader2, IconLock, IconMail, IconUser } from '@tabler/icons-react'
+import { IconEye, IconEyeOff, IconFingerprint, IconKey, IconLoader2, IconLock, IconMail, IconUser } from '@tabler/icons-react'
 import { requestPasswordReset, signIn, signUp } from '../dataService.js'
+import { signInWithPasskey } from '../features/auth/auth.repository.ts'
 import { ROUTES } from '../constants.js'
 import BrandLogo from './ui/BrandLogo.jsx'
 import InteractiveHeroCoin from './ui/InteractiveHeroCoin.jsx'
@@ -20,7 +21,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 function friendlyAuthError(error) {
   const message = String(error?.message || '')
   if (/JWT issued at future/i.test(message)) {
-    return 'Sua sessão perdeu a sincronização. Atualize a hora automática do dispositivo e tente entrar novamente.'
+    return 'Não foi possível validar a hora da sessão agora. Confira se Data e Hora automáticas estão ativadas no iPhone.'
   }
   if (/Invalid login credentials/i.test(message)) return 'E-mail ou senha incorretos.'
   if (/Email not confirmed/i.test(message)) return 'Confirme o e-mail de cadastro antes de entrar.'
@@ -40,6 +41,8 @@ export default function AuthScreen({ onAuthenticated }) {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [biometricLoading, setBiometricLoading] = useState(false)
+  const [biometricAvailable, setBiometricAvailable] = useState(false)
   const visualRef = useRef(null)
   const reduce = useReducedMotion() ?? false
 
@@ -58,6 +61,14 @@ export default function AuthScreen({ onAuthenticated }) {
     setError('')
     setMessage('')
   }, [mode])
+
+  useEffect(() => {
+    const supported = typeof window !== 'undefined'
+      && window.isSecureContext
+      && 'PublicKeyCredential' in window
+      && Boolean(navigator?.credentials?.get)
+    setBiometricAvailable(supported)
+  }, [])
 
   const passwordState = useMemo(() => evaluatePassword(password), [password])
   const signupErrors = useMemo(() => {
@@ -121,6 +132,20 @@ export default function AuthScreen({ onAuthenticated }) {
     }
   }
 
+  async function biometricSignIn() {
+    setError('')
+    setMessage('')
+    setBiometricLoading(true)
+    try {
+      const session = await signInWithPasskey()
+      onAuthenticated(session)
+    } catch (err) {
+      setError(friendlyAuthError(err))
+    } finally {
+      setBiometricLoading(false)
+    }
+  }
+
   const isReset = mode === 'reset'
   const title = mode === 'login' ? 'Entrar no UaiConta' : mode === 'signup' ? 'Criar sua conta' : 'Recuperar senha'
 
@@ -159,10 +184,20 @@ export default function AuthScreen({ onAuthenticated }) {
             transition={{ duration: reduce ? 0 : 0.24 }}
           >
             <div className="auth-card-heading">
-              <span className="eyebrow">{mode === 'login' ? 'Bem-vinda de volta' : mode === 'signup' ? 'Comece agora' : 'Acesso à conta'}</span>
+              <span className="eyebrow">{mode === 'signup' ? 'Comece agora' : 'Acesso à conta'}</span>
               <h2>{title}</h2>
               <p>{isReset ? 'Informe seu e-mail para receber um link seguro de redefinição.' : mode === 'login' ? 'Entre e continue exatamente de onde parou.' : 'Crie sua conta com uma senha forte. Seus dados financeiros ficam separados por usuário.'}</p>
             </div>
+
+            {mode === 'login' && biometricAvailable && (
+              <div className="auth-biometric-mobile">
+                <button type="button" className="auth-biometric-btn" onClick={biometricSignIn} disabled={biometricLoading || loading}>
+                  {biometricLoading ? <IconLoader2 size={20} className="spin" /> : <IconFingerprint size={22} stroke={1.8} />}
+                  <span><strong>Entrar com biometria</strong><small>Face ID ou Touch ID</small></span>
+                </button>
+                <div className="auth-biometric-divider"><span>ou use e-mail e senha</span></div>
+              </div>
+            )}
 
             <form onSubmit={submit} noValidate>
               {mode === 'signup' && (
@@ -208,7 +243,7 @@ export default function AuthScreen({ onAuthenticated }) {
               {error && <div className="inline-alert auth-inline-message">{error}</div>}
               {message && <div className="inline-success auth-inline-message">{message}</div>}
 
-              <motion.button type="submit" className="primary-btn auth-submit auth-submit-v5" disabled={loading} whileTap={reduce ? undefined : { scale: 0.985 }}>
+              <motion.button type="submit" className="primary-btn auth-submit auth-submit-v5" disabled={loading || biometricLoading} whileTap={reduce ? undefined : { scale: 0.985 }}>
                 {loading && <IconLoader2 size={18} className="spin" />}
                 {isReset ? <><IconKey size={17} /> Enviar link</> : mode === 'login' ? 'Entrar no meu painel' : 'Criar minha conta'}
               </motion.button>
