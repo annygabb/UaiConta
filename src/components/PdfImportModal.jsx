@@ -29,6 +29,26 @@ function fromEditableAmount(value) {
   return Number.isFinite(number) ? Math.abs(number) : 0
 }
 
+function deferTask(callback) {
+  if (typeof queueMicrotask === 'function') queueMicrotask(callback)
+  else Promise.resolve().then(callback)
+}
+
+function fileId(file) {
+  const random = typeof globalThis.crypto?.randomUUID === 'function' ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random()}`
+  return `${file.name}-${file.size}-${file.lastModified}-${random}`
+}
+
+function defaultExpenseCategory() {
+  return EXPENSE_CATEGORIES[EXPENSE_CATEGORIES.length - 1] || EXPENSE_CATEGORIES[0] || 'Não categorizado'
+}
+
+function friendlyFileError(error, fileName = 'Arquivo') {
+  const raw = String(error?.message || '')
+  if (/undefined is not a function/i.test(raw)) return `${fileName}: o leitor do Safari encontrou uma incompatibilidade. A versão atual do UaiConta já inclui o modo compatível; toque em Tentar novamente.`
+  return raw || `${fileName}: falha ao ler arquivo.`
+}
+
 export default function PdfImportModal({ existingTransactions, onClose, onImport }) {
   const queueRef = useRef([])
   const workerRef = useRef(false)
@@ -56,7 +76,7 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
         const pending = draft.files.filter((item) => ['pendente', 'erro'].includes(item.status))
         if (pending.length) {
           queueRef.current.push(...pending.map((item) => ({ ...item, status: 'pendente' })))
-          queueMicrotask(() => drainQueue())
+          deferTask(() => drainQueue())
         }
       }
       hydratedRef.current = true
@@ -77,7 +97,7 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
       setMessage('Use PDF, CSV, PNG, JPG, JPEG ou WEBP.')
       return
     }
-    const additions = incoming.map((file) => ({ id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID?.() || Math.random()}`, file, name: file.name, status: 'pendente', count: 0, error: '' }))
+    const additions = incoming.map((file) => ({ id: fileId(file), file, name: file.name, status: 'pendente', count: 0, error: '' }))
     setFiles((current) => [...current, ...additions])
     setMessage('')
     queueRef.current.push(...additions)
@@ -100,7 +120,7 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
           setRows((current) => [...current.filter((row) => row.sourceFile !== item.name), ...marked])
           setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: 'processado', count: parsed.length, error: '' } : entry))
         } catch (error) {
-          setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: 'erro', error: error?.message || 'Falha ao ler arquivo.' } : entry))
+          setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: 'erro', error: friendlyFileError(error, item.name) } : entry))
         }
       }
     } finally {
@@ -180,7 +200,7 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
                       <div className="review-meta"><span>{dateLabel(row.date)}</span><span>{row.sourceFile}</span><Badge tone={row.confidence === 'alta' ? 'success' : row.confidence === 'media' ? 'warning' : 'danger'}>confiança {row.confidence}</Badge>{row.categorySuggested && <Badge tone="warning">categoria sugerida</Badge>}{row.__possibleDuplicate && <Badge tone="danger">possível duplicado</Badge>}</div>
                       <div className="review-fields import-review-grid-v5">
                         <label className="review-amount-field"><span>Valor</span><input inputMode="decimal" value={row.__amountInput ?? toEditableAmount(row.amount)} onChange={(event) => updateRow(row.id, { __amountInput: event.target.value, amount: fromEditableAmount(event.target.value) })} /></label>
-                        <SelectField value={row.type} onChange={(value) => updateRow(row.id, { type: value, category: value === 'receita' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES.at(-1), categorySuggested: true })} options={[{ value: 'despesa', label: 'Despesa' }, { value: 'receita', label: 'Receita' }]} ariaLabel="Tipo de movimentação importada" />
+                        <SelectField value={row.type} onChange={(value) => updateRow(row.id, { type: value, category: value === 'receita' ? INCOME_CATEGORIES[0] : defaultExpenseCategory(), categorySuggested: true })} options={[{ value: 'despesa', label: 'Despesa' }, { value: 'receita', label: 'Receita' }]} ariaLabel="Tipo de movimentação importada" />
                         <SelectField value={row.category} onChange={(value) => updateRow(row.id, { category: value, categorySuggested: false })} options={categories} ariaLabel="Categoria importada" />
                         <SelectField value={row.paymentMethod} onChange={(value) => updateRow(row.id, { paymentMethod: value })} options={PAYMENT_METHODS} ariaLabel="Forma de pagamento importada" />
                         <PurpleDatePicker value={row.date} onChange={(value) => updateRow(row.id, { date: value })} ariaLabel={`Data de ${row.description}`} />
