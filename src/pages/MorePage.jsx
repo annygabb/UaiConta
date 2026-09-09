@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   IconCategory,
@@ -6,6 +6,8 @@ import {
   IconCreditCard,
   IconDatabase,
   IconFileInvoice,
+  IconFingerprint,
+  IconLoader2,
   IconLock,
   IconReceipt,
   IconRepeat,
@@ -14,6 +16,7 @@ import {
 } from '@tabler/icons-react'
 import { ROUTES } from '../constants.js'
 import { Panel } from '../components/Common.jsx'
+import { registerPasskey } from '../features/auth/auth.repository.ts'
 
 const items = [
   { icon: IconWallet, title: 'Contas', text: 'Organize onde seu dinheiro fica.', to: ROUTES.accounts },
@@ -28,6 +31,33 @@ const items = [
 ]
 
 export default function MorePage({ onImportPdf, session, onSignOut }) {
+  const [passkeySupported, setPasskeySupported] = useState(false)
+  const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const [passkeyMessage, setPasskeyMessage] = useState('')
+  const [passkeyError, setPasskeyError] = useState('')
+
+  useEffect(() => {
+    const supported = typeof window !== 'undefined'
+      && window.isSecureContext
+      && 'PublicKeyCredential' in window
+      && Boolean(navigator?.credentials?.create)
+    setPasskeySupported(supported)
+  }, [])
+
+  async function enableBiometrics() {
+    setPasskeyMessage('')
+    setPasskeyError('')
+    setPasskeyLoading(true)
+    try {
+      await registerPasskey()
+      setPasskeyMessage('Biometria ativada neste dispositivo. Na próxima entrada, use Face ID ou Touch ID.')
+    } catch (error) {
+      setPasskeyError(String(error?.message || 'Não foi possível ativar a biometria.'))
+    } finally {
+      setPasskeyLoading(false)
+    }
+  }
+
   return <div className="page-stack">
     <div className="page-intro"><div><span className="eyebrow">Organização e recursos</span><h1>Mais</h1><p>Gerencie planejamento, documentos, contas e seus próprios dados sem misturar configurações técnicas com o uso diário.</p></div></div>
 
@@ -37,6 +67,15 @@ export default function MorePage({ onImportPdf, session, onSignOut }) {
     </div>
 
     <div className="more-session-grid">
+      {session && passkeySupported && <Panel title="Acesso biométrico" subtitle="Face ID ou Touch ID neste dispositivo">
+        <div className="settings-actions biometric-settings-actions">
+          <button className="ghost-btn biometric-enroll-btn" onClick={enableBiometrics} disabled={passkeyLoading}>
+            {passkeyLoading ? <IconLoader2 size={17} className="spin"/> : <IconFingerprint size={18}/>} Ativar biometria
+          </button>
+          {passkeyMessage && <p className="inline-success biometric-inline-status">{passkeyMessage}</p>}
+          {passkeyError && <p className="inline-alert biometric-inline-status">{passkeyError}</p>}
+        </div>
+      </Panel>}
       <Panel title="Sessão" subtitle={session?.user?.email || 'Modo demo'}>
         <div className="settings-actions">{session ? <button className="ghost-btn" onClick={onSignOut}><IconLock size={16}/> Sair de todos os dispositivos</button> : <span className="muted-copy">Entre em uma conta para sincronizar seus dados.</span>}</div>
       </Panel>
