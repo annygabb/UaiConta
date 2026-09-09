@@ -1,9 +1,10 @@
-import type { Session } from '@supabase/supabase-js'
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { getCurrentSession, getSupabaseClient, isSupabaseConfigured } from '../../infrastructure/supabase/client'
 
 export type AuthResult = Session | { pendingConfirmation: true; user: unknown }
 
 const AUTH_BOOT_TIMEOUT_MS = 3500
+const REFRESH_MARGIN_MS = 90_000
 
 function clockSkewError(error: unknown) {
   const message = String((error as { message?: string })?.message || '')
@@ -11,7 +12,12 @@ function clockSkewError(error: unknown) {
 }
 
 function clockSkewMessage() {
-  return new Error('Sua sessão perdeu a sincronização. Ative data e hora automáticas no dispositivo e tente entrar novamente.')
+  return new Error('Não foi possível validar a hora da sessão agora. O UaiConta manteve o acesso local; confira se Data e Hora automáticas estão ativadas no iPhone.')
+}
+
+function passkeySetupError(error: unknown) {
+  const message = String((error as { message?: string })?.message || '')
+  return /passkey|webauthn|relying party|rp id|not enabled|disabled/i.test(message)
 }
 
 async function clearLocalSession() {
@@ -32,41 +38,38 @@ async function initializeAuthInternal(): Promise<Session | null> {
     const cached = await getCurrentSession()
     if (!cached) return null
 
+    // A newly-created session is already valid. Refreshing it immediately is
+    // unnecessary and was one of the points where Mobile Safari could bounce
+    // the user back to login. Refresh only when it is actually close to expiry.
+    const expiresAtMs = Number(cached.expires_at || 0) * 1000
+    if (!expiresAtMs || expiresAtMs > Date.now() + REFRESH_MARGIN_MS) return cached
+
     const { data: refreshed, error: refreshError } = await client.auth.refreshSession({ refresh_token: cached.refresh_token })
     if (!refreshError && refreshed.session) return refreshed.session
-    if (refreshError && clockSkewError(refreshError)) {
-      await clearLocalSession()
-      return null
-    }
 
-    const { error: verifyError } = await client.auth.getUser()
-    if (verifyError && clockSkewError(verifyError)) {
-      await clearLocalSession()
-      return null
-    }
-    if (verifyError) throw verifyError
+    // A clock mismatch should never turn a valid local session into a forced
+    // logout. Keep the cached session and let the next automatic refresh retry.
+    if (refreshError && clockSkewError(refreshError)) return cached
+    if (refreshError) throw refreshError
     return cached
   } catch (error) {
-    if (clockSkewError(error)) {
-      await clearLocalSession()
-      return null
-    }
+    if (clockSkewError(error)) return getCurrentSession().catch(() => null)
     throw error
   }
 }
 
 export async function initializeAuth(): Promise<Session | null> {
   // Mobile Safari can occasionally leave storage/network-backed auth restoration
-  // pending for a long time. Never let that bootstrap block login/signup forever.
+  // pending for a long time. Never let bootstrap block login/signup forever.
   return Promise.race([
     initializeAuthInternal(),
     new Promise<null>((resolve) => setTimeout(() => resolve(null), AUTH_BOOT_TIMEOUT_MS)),
   ])
 }
 
-export function onAuthChanged(callback: (session: Session | null) => void) {
+export function onAuthChanged(callback: (session: Session | null, event: AuthChangeEvent) => void) {
   if (!isSupabaseConfigured) return () => undefined
-  const { data } = getSupabaseClient().auth.onAuthStateChange((_event, session) => callback(session))
+  const { data } = getSupabaseClient().auth.onAuthStateChange((event, session) => callback(session, event))
   return () => data.subscription.unsubscribe()
 }
 
@@ -83,6 +86,41 @@ export async function signIn(email: string, password: string): Promise<Session> 
   if (result.error) return throwAuthError(result.error)
   if (!result.data.session) throw new Error('A sessão não foi criada.')
   return result.data.session
+}
+
+export async function signInWithPasskey(): Promise<Session> {
+  const client = getSupabaseClient()
+  try {
+    const { data, error } = await client.auth.signInWithPasskey()
+    if (error) throw error
+    if (!data?.session) throw new Error('A biometria foi validada, mas a sessão não foi criada.')
+    return data.session
+  } catch (error) {
+    if (String((error as { name?: string })?.name || '') === 'NotAllowedError') {
+      throw new Error('A autenticação biométrica foi cancelada ou não pôde ser concluída.')
+    }
+    if (passkeySetupError(error)) {
+      throw new Error('A biometria ainda precisa ser ativada para o UaiConta no Supabase. Entre com sua senha e ative o acesso biométrico em Mais.')
+    }
+    throw error
+  }
+}
+
+export async function registerPasskey() {
+  const client = getSupabaseClient()
+  try {
+    const { data, error } = await client.auth.registerPasskey()
+    if (error) throw error
+    return data
+  } catch (error) {
+    if (String((error as { name?: string })?.name || '') === 'NotAllowedError') {
+      throw new Error('O cadastro da biometria foi cancelado.')
+    }
+    if (passkeySetupError(error)) {
+      throw new Error('A autenticação por biometria ainda precisa ser habilitada no projeto Supabase do UaiConta.')
+    }
+    throw error
+  }
 }
 
 export async function signUp(email: string, password: string, displayName = ''): Promise<AuthResult> {
