@@ -1,4 +1,4 @@
-const CACHE = "uaiconta-shell-v5";
+const CACHE = "uaiconta-shell-v6";
 const SHELL = ["/", "/dashboard", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/brand/uai-mark.svg"];
 
 self.addEventListener("install", (event) => {
