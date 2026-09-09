@@ -117,7 +117,7 @@ async function extractCsv(file) {
   try {
     text = await readFileAsText(file)
   } catch (error) {
-    throw new Error(`${file?.name || 'CSV'}: não foi possível ler o arquivo no Safari. ${String(error?.message || '')}`.trim())
+    throw new Error(`${file?.name || 'CSV'}: não foi possível ler o arquivo no Safari. ${String(error?.message || '')}`.trim(), { cause: error })
   }
   const lines = text.split(/\r?\n/).filter((line) => line.trim())
   if (lines.length < 2) throw new Error('O CSV não possui linhas suficientes para importar.')
