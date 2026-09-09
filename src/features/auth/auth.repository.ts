@@ -106,6 +106,21 @@ export async function signInWithPasskey(): Promise<Session> {
   }
 }
 
+export async function hasRegisteredPasskey(): Promise<boolean> {
+  if (!isSupabaseConfigured) return false
+  const client = getSupabaseClient()
+  try {
+    const { data, error } = await client.auth.passkey.list()
+    if (error) throw error
+    if (Array.isArray(data)) return data.length > 0
+    const passkeys = (data as { passkeys?: unknown[] } | null)?.passkeys
+    return Array.isArray(passkeys) && passkeys.length > 0
+  } catch (error) {
+    if (passkeySetupError(error)) return false
+    throw error
+  }
+}
+
 export async function registerPasskey() {
   const client = getSupabaseClient()
   try {
