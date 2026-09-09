@@ -11,9 +11,20 @@ export const dataMode = isSupabaseConfigured ? 'supabase' : isDemoEnabled ? 'dem
 
 let client: SupabaseClient | null = null
 
-function getSessionStorage() {
+function getAuthStorage() {
   if (typeof window === 'undefined') return undefined
-  return window.sessionStorage
+
+  // iOS/Safari and standalone PWAs can recreate a sessionStorage context while
+  // transitioning between screens. Prefer persistent localStorage so a freshly
+  // authenticated session is not lost between the login and dashboard boot.
+  try {
+    const probe = '__uaiconta_auth_storage_probe__'
+    window.localStorage.setItem(probe, '1')
+    window.localStorage.removeItem(probe)
+    return window.localStorage
+  } catch {
+    return window.sessionStorage
+  }
 }
 
 export function getSupabaseClient(): SupabaseClient {
@@ -27,12 +38,15 @@ export function getSupabaseClient(): SupabaseClient {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storage: getSessionStorage(),
-        storageKey: 'uaiconta-auth-v4',
+        storage: getAuthStorage(),
+        storageKey: 'uaiconta-auth-v5',
+        experimental: {
+          passkey: true,
+        },
       },
       global: {
         headers: {
-          'x-client-info': 'uaiconta-web-v4',
+          'x-client-info': 'uaiconta-web-v5',
         },
       },
     })
