@@ -1,0 +1,51 @@
+/* UaiConta V12 — morphing loading transition after password or passkey authentication. */
+
+.post-auth-loading{
+  position:fixed;
+  inset:0;
+  z-index:2147483200;
+  display:grid;
+  place-items:center;
+  min-height:100dvh;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 50% 45%,rgba(112,61,142,.18),transparent 34%),
+    linear-gradient(180deg,#09060d 0%,#07050a 100%);
+  color:#fff;
+  isolation:isolate;
+}
+
+.post-auth-loading-glow{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:min(78vw,460px);
+  aspect-ratio:1;
+  transform:translate(-50%,-50%);
+  border-radius:999px;
+  background:radial-gradient(circle,rgba(153,92,190,.16),rgba(80,33,101,.06) 42%,transparent 70%);
+  filter:blur(24px);
+  pointer-events:none;
+}
+
+.post-auth-loading>div:last-child{
+  position:relative;
+  z-index:1;
+  gap:18px;
+}
+
+.post-auth-loading>div:last-child>div:last-child{
+  font-size:13px;
+  letter-spacing:.025em;
+  color:rgba(241,229,247,.68);
+}
+
+@media(max-width:720px){
+  .post-auth-loading{
+    padding:env(safe-area-inset-top) 20px env(safe-area-inset-bottom);
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .post-auth-loading [style]{animation:none!important}
+}
