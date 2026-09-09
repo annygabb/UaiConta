@@ -4,10 +4,21 @@ import { recognizeImage, normalizeReceiptText } from '../receipts/ocr.ts'
 import { uid } from '../../utils.js'
 
 function searchable(value = '') {
-  return String(value)
-    .normalize('NFKD')
+  const source = String(value)
+  const normalized = typeof source.normalize === 'function' ? source.normalize('NFKD') : source
+  return normalized
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
+}
+
+function readFileAsText(file) {
+  if (typeof file?.text === 'function') return file.text()
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(reader.error || new Error('Não foi possível ler o CSV no Safari.'))
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.readAsText(file, 'UTF-8')
+  })
 }
 
 const EXPENSE_RULES = [
@@ -102,7 +113,12 @@ function headerIndex(headers, options) {
 }
 
 async function extractCsv(file) {
-  const text = await file.text()
+  let text
+  try {
+    text = await readFileAsText(file)
+  } catch (error) {
+    throw new Error(`${file?.name || 'CSV'}: não foi possível ler o arquivo no Safari. ${String(error?.message || '')}`.trim())
+  }
   const lines = text.split(/\r?\n/).filter((line) => line.trim())
   if (lines.length < 2) throw new Error('O CSV não possui linhas suficientes para importar.')
 
