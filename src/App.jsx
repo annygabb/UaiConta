@@ -47,11 +47,12 @@ import { recurrenceRepository } from './features/recurrences/recurrence.reposito
 import { projectRecurrence, recurrenceOccurrenceKey } from './features/recurrences/recurrence.ts'
 import { profileRepository } from './features/profile/profile.repository.ts'
 
-const nameConfirmationKey = (scope) => `uaiconta-name-confirmed-v1:${scope}`
 const isClockSkewMessage = (message) => /JWT issued at future|issued in the future|not valid yet/i.test(String(message || ''))
 const userError = (error, fallback) => isClockSkewMessage(error?.message)
-  ? 'Não foi possível validar a sessão agora.'
+  ? 'Não foi possível validar a hora da sessão agora. Confira se Data e Hora automáticas estão ativadas no dispositivo.'
   : (error?.message || fallback)
+const cleanDisplayName = (value) => String(value || '').trim().replace(/\s+/g, ' ')
+const firstName = (value) => cleanDisplayName(value).split(' ')[0] || ''
 
 export default function UaiConta() {
   const location = useLocation()
@@ -79,7 +80,18 @@ export default function UaiConta() {
       .then((nextSession) => { if (active) setSession(nextSession) })
       .catch((err) => { if (active) setError(userError(err, 'Não foi possível restaurar sua sessão.')) })
       .finally(() => { if (active) setAuthReady(true) })
-    const unsubscribe = onAuthChanged((nextSession) => { if (active) setSession(nextSession) })
+
+    const unsubscribe = onAuthChanged((nextSession, event) => {
+      if (!active) return
+      if (nextSession?.access_token) {
+        setSession(nextSession)
+        setAuthReady(true)
+        return
+      }
+      // INITIAL_SESSION/TOKEN_REFRESHED can be momentarily null on Mobile Safari.
+      // Only an explicit Supabase sign-out is allowed to send the user to login.
+      if (event === 'SIGNED_OUT') setSession(null)
+    })
     return () => { active = false; unsubscribe?.() }
   }, [])
 
@@ -114,15 +126,10 @@ export default function UaiConta() {
         const hasIncome = finalRows.some((row) => row.type === 'receita')
         setShowOnboarding(!isOnboarded(session?.user?.id || 'demo') && !hasIncome)
       })
-      .catch(async (err) => {
+      .catch((err) => {
         if (!active) return
-        if (isClockSkewMessage(err?.message)) {
-          await signOut().catch(() => undefined)
-          if (!active) return
-          setSession(null)
-          setError('')
-          return
-        }
+        // Never turn a transient iPhone clock/network validation problem into an
+        // automatic logout. Keep the authenticated session and surface the error.
         setError(userError(err, 'Falha ao carregar dados.'))
       })
       .finally(() => active && setLoading(false))
@@ -138,30 +145,29 @@ export default function UaiConta() {
     }
 
     let active = true
-    const scope = session?.user?.id || 'demo'
+    const metadataName = cleanDisplayName(session?.user?.user_metadata?.display_name)
+
     profileRepository.getDisplayName()
       .then((name) => {
         if (!active) return
-        setProfileName(name)
-        const confirmed = sessionStorage.getItem(nameConfirmationKey(scope)) === 'true'
-        setNamePromptOpen(!confirmed)
+        const resolvedName = cleanDisplayName(name || metadataName)
+        setProfileName(resolvedName)
+        // The name entered during signup is already stored in auth metadata.
+        // Ask only legacy accounts that genuinely have no name at all.
+        setNamePromptOpen(!resolvedName)
       })
-      .catch(async (err) => {
+      .catch((err) => {
         if (!active) return
-        if (isClockSkewMessage(err?.message)) {
-          await signOut().catch(() => undefined)
-          if (!active) return
-          setSession(null)
-          setError('')
-          setNamePromptOpen(false)
-          return
+        const fallbackName = metadataName
+        setProfileName(fallbackName)
+        setNamePromptOpen(!fallbackName)
+        if (!isClockSkewMessage(err?.message)) {
+          setError(userError(err, 'Não foi possível carregar seu perfil.'))
         }
-        setError(userError(err, 'Não foi possível carregar seu perfil.'))
-        setNamePromptOpen(true)
       })
 
     const onProfileChanged = (event) => {
-      const nextName = String(event?.detail?.displayName || '').trim()
+      const nextName = cleanDisplayName(event?.detail?.displayName)
       if (nextName) setProfileName(nextName)
     }
     window.addEventListener('uaiconta:profile-changed', onProfileChanged)
@@ -179,13 +185,8 @@ export default function UaiConta() {
     let active = true
     const reloadRules = () => recurrenceRepository.list()
       .then((rows) => { if (active) setRecurrenceRules(rows) })
-      .catch(async (err) => {
+      .catch((err) => {
         if (!active) return
-        if (isClockSkewMessage(err?.message)) {
-          await signOut().catch(() => undefined)
-          if (active) { setSession(null); setError('') }
-          return
-        }
         setError(userError(err, 'Não foi possível carregar recorrências.'))
       })
     reloadRules()
@@ -301,12 +302,9 @@ export default function UaiConta() {
   async function confirmName(name) {
     try {
       const savedName = await profileRepository.saveDisplayName(name)
-      const scope = session?.user?.id || 'demo'
-      sessionStorage.setItem(nameConfirmationKey(scope), 'true')
       setProfileName(savedName)
       setNamePromptOpen(false)
       window.dispatchEvent(new CustomEvent('uaiconta:profile-changed', { detail: { displayName: savedName } }))
-      notify(`Bem-vinda, ${savedName.split(' ')[0]}.`)
     } catch (err) {
       notify(userError(err, 'Não foi possível salvar seu nome.'), 'error')
       throw err
@@ -314,8 +312,6 @@ export default function UaiConta() {
   }
 
   async function handleSignOut() {
-    const scope = session?.user?.id || 'demo'
-    try { sessionStorage.removeItem(nameConfirmationKey(scope)) } catch {}
     try { await signOut() } finally {
       setSession(null)
       setTransactions([])
@@ -332,15 +328,17 @@ export default function UaiConta() {
     return <main className="auth-page"><section className="auth-card"><div><span className="eyebrow">Configuração necessária</span><h2>Conecte o UaiConta ao Supabase</h2><p>Este ambiente não possui backend configurado. Em produção o app não usa fallback silencioso para armazenamento local.</p></div><div className="inline-alert">Configure VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY. Para desenvolvimento, o modo demo só é ativado explicitamente com VITE_ENABLE_DEMO_MODE=true.</div></section></main>
   }
 
-  if (isSupabaseConfigured && !session?.access_token) return <AuthScreen onAuthenticated={setSession} />
-  if (loading) return <div className="app-loader"><div className="loader-orb"/><IconLoader2 size={22} className="spin"/><span>Preparando seu painel...</span></div>
+  if (isSupabaseConfigured && !session?.access_token) {
+    return <AuthScreen onAuthenticated={(nextSession) => { setError(''); setSession(nextSession); setAuthReady(true) }} />
+  }
+  if (loading) return <div className="app-loader"><div className="loader-orb"/><IconLoader2 size={22} className="spin"/><span>Abrindo seu painel...</span></div>
 
   return (
     <div className="app-shell">
-      <Sidebar onAdd={() => setFormState({})} userName={profileName} />
+      <Sidebar onAdd={() => setFormState({})} userName="" />
       <div className="app-column">
         <header className="topbar">
-          <div className="topbar-title"><span>{profileName ? `Olá, ${profileName.split(' ')[0]}` : 'Receitas'}</span><strong>{periodLabel(period)}</strong></div>
+          <div className="topbar-title"><span>{firstName(profileName) || 'Receitas'}</span><strong>{periodLabel(period)}</strong></div>
           <PeriodSelector value={period} onChange={setPeriod} />
           <button className="top-add" onClick={() => setFormState({})}><IconPlus size={17}/> <span>Adicionar</span></button>
         </header>
@@ -348,7 +346,7 @@ export default function UaiConta() {
         <main className="content">
           <Routes>
             <Route path="/" element={<Navigate to={ROUTES.dashboard} replace />} />
-            <Route path={ROUTES.dashboard} element={<DashboardPage metrics={metrics} monthlySeries={monthlySeries} recentTransactions={currentRows} onEdit={setFormState} onAdd={() => setFormState({})} userName={profileName} />} />
+            <Route path={ROUTES.dashboard} element={<DashboardPage metrics={metrics} monthlySeries={monthlySeries} recentTransactions={currentRows} onEdit={setFormState} onAdd={() => setFormState({})} />} />
             <Route path={ROUTES.transactions} element={<TransactionsPage transactions={financialRows} period={period} onEdit={setFormState} onDuplicate={handleDuplicate} onDelete={handleDelete} onResolvePlanned={handleResolvePlanned} onAdd={() => setFormState({})} />} />
             <Route path={ROUTES.analytics} element={<AnalyticsPage metrics={metrics} monthlySeries={monthlySeries} />} />
             <Route path={ROUTES.more} element={<MorePage onImportPdf={() => setPdfOpen(true)} session={session} onSignOut={handleSignOut} />} />
