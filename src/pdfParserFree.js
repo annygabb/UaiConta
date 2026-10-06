@@ -83,14 +83,39 @@ async function getPdfJs() {
   return pdfjsPromise
 }
 
-function readFileAsArrayBuffer(file) {
-  if (typeof file?.arrayBuffer === 'function') return file.arrayBuffer()
+function readWithFileReader(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onerror = () => reject(reader.error || new Error('Não foi possível ler o arquivo no Safari.'))
-    reader.onload = () => resolve(reader.result)
+    reader.onabort = () => reject(new Error('A leitura do PDF foi interrompida.'))
+    reader.onload = () => {
+      if (reader.result instanceof ArrayBuffer) resolve(reader.result)
+      else reject(new Error('O navegador devolveu um formato inesperado ao ler o PDF.'))
+    }
     reader.readAsArrayBuffer(file)
   })
+}
+
+export async function readPdfFileAsArrayBuffer(file) {
+  if (!file) throw new Error('Selecione um arquivo PDF válido.')
+  const failures = []
+
+  // FileReader is the most reliable path for Files selected from iCloud Drive
+  // and the Files app in iOS Safari/PWAs. Other browsers keep two fallbacks.
+  if (typeof FileReader !== 'undefined') {
+    try { return await readWithFileReader(file) }
+    catch (error) { failures.push(error) }
+  }
+  if (typeof file.arrayBuffer === 'function') {
+    try { return await file.arrayBuffer() }
+    catch (error) { failures.push(error) }
+  }
+  if (typeof Response !== 'undefined') {
+    try { return await new Response(file).arrayBuffer() }
+    catch (error) { failures.push(error) }
+  }
+
+  throw new Error('Não foi possível acessar os dados deste PDF no dispositivo.', { cause: failures.at(-1) })
 }
 
 function padded(text) {
@@ -153,9 +178,9 @@ export function displayDescriptionFromRaw(raw) {
 
 async function extractRawText(file) {
   const pdfjsLib = await getPdfJs()
-  const buffer = await readFileAsArrayBuffer(file)
+  const buffer = await readPdfFileAsArrayBuffer(file)
   const data = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer)
-  const loadingTask = pdfjsLib.getDocument({ data })
+  const loadingTask = pdfjsLib.getDocument({ data, isEvalSupported: false, useWorkerFetch: false })
   const pdf = await loadingTask.promise
   let fullText = ''
   try {
@@ -272,8 +297,14 @@ export async function extractTransactionsFromPDFFree(file) {
     return parseFinancialText(text, { sourceFile: file.name })
   } catch (error) {
     const message = String(error?.message || '')
-    if (/undefined is not a function|withResolvers|arrayBuffer/i.test(message)) {
-      throw new Error(`${file.name}: o Safari não conseguiu ler este PDF. Atualize o UaiConta e tente novamente.`, { cause: error })
+    if (/password|encrypted/i.test(message)) {
+      throw new Error(`${file.name}: este PDF é protegido por senha. Exporte uma cópia sem senha e tente novamente.`, { cause: error })
+    }
+    if (/invalid pdf|missing pdf|unexpected response|format error/i.test(message)) {
+      throw new Error(`${file.name}: o arquivo não parece ser um PDF válido ou está corrompido.`, { cause: error })
+    }
+    if (/undefined is not a function|withResolvers|arrayBuffer|file.?reader|access.*dados/i.test(message)) {
+      throw new Error(`${file.name}: não foi possível ler este PDF no dispositivo. Se ele estiver no iCloud, baixe-o primeiro e selecione novamente.`, { cause: error })
     }
     throw error
   }

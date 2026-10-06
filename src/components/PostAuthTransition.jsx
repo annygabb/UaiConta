@@ -33,10 +33,12 @@ export default function PostAuthTransition() {
   return (
     <div className="post-auth-loading" role="status" aria-live="polite" aria-label="Abrindo seu painel">
       <div className="post-auth-loading-glow" aria-hidden="true" />
-      <MorphingSquare
-        message="Abrindo seu painel..."
-        className="!h-12 !w-12 !bg-[#a56ad9] shadow-[0_0_38px_rgba(165,106,217,.34)]"
-      />
+      <div className="post-auth-loading-content">
+        <MorphingSquare
+          message="Abrindo seu painel..."
+          className="!h-12 !w-12 !bg-[#a56ad9] shadow-[0_0_38px_rgba(165,106,217,.34)]"
+        />
+      </div>
     </div>
   )
 }
