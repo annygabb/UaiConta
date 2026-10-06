@@ -58,7 +58,7 @@ const HEADER_PATTERNS = [
 
 let pdfjsPromise
 
-function ensureSafariCompatibility() {
+export function ensurePdfRuntimeCompatibility() {
   if (typeof Promise.withResolvers !== 'function') {
     Promise.withResolvers = function withResolvers() {
       let resolve
@@ -70,10 +70,28 @@ function ensureSafariCompatibility() {
       return { promise, resolve, reject }
     }
   }
+
+  // PDF.js 6 uses this ES2024 method while preparing embedded fonts. Some
+  // Safari/iOS versions still do not expose it, even in the legacy bundle.
+  // A copied, fixed-size buffer is sufficient for PDF.js' internal use here.
+  if (typeof ArrayBuffer !== 'undefined' && typeof ArrayBuffer.prototype.transferToFixedLength !== 'function') {
+    Object.defineProperty(ArrayBuffer.prototype, 'transferToFixedLength', {
+      configurable: true,
+      writable: true,
+      value(newLength = this.byteLength) {
+        const length = Number(newLength)
+        if (!Number.isInteger(length) || length < 0) throw new RangeError('Invalid ArrayBuffer length')
+        const result = new ArrayBuffer(length)
+        const source = new Uint8Array(this, 0, Math.min(this.byteLength, length))
+        new Uint8Array(result).set(source)
+        return result
+      },
+    })
+  }
 }
 
 async function getPdfJs() {
-  ensureSafariCompatibility()
+  ensurePdfRuntimeCompatibility()
   if (!pdfjsPromise) {
     pdfjsPromise = import('pdfjs-dist/legacy/build/pdf.mjs').then((module) => {
       module.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
@@ -128,6 +146,37 @@ function guessFromKeywords(text, dict, fallback) {
     if (words.some((word) => lower.includes(word))) return { label, matched: true }
   }
   return { label: fallback, matched: false }
+}
+
+function createFinancialRow({ date, amount, rawDescription, description, sourceFile }) {
+  const lower = description.toLowerCase()
+  const type = INCOME_KEYWORDS.some((keyword) => lower.includes(keyword)) ? 'receita' : 'despesa'
+  const categoryGuess = type === 'receita'
+    ? { label: INCOME_CATEGORIES.includes('Outras receitas') ? 'Outras receitas' : INCOME_CATEGORIES[0], matched: false }
+    : guessFromKeywords(description, CATEGORY_KEYWORDS, 'Não categorizado')
+  const paymentGuess = guessFromKeywords(description, PAYMENT_KEYWORDS, 'Não identificado')
+  const matchedSignals = Number(categoryGuess.matched) + Number(paymentGuess.matched) + Number(description.length >= 4 && description.length <= 120)
+
+  return {
+    id: uid(),
+    type,
+    amount,
+    rawDescription,
+    description,
+    category: type === 'receita'
+      ? categoryGuess.label
+      : (CATEGORIES.includes(categoryGuess.label) ? categoryGuess.label : 'Não categorizado'),
+    paymentMethod: PAYMENT_METHODS.includes(paymentGuess.label) ? paymentGuess.label : 'Não identificado',
+    date,
+    status: 'completed',
+    isRecurring: false,
+    notes: '',
+    source: 'pdf',
+    sourceFile,
+    confidence: matchedSignals >= 3 ? 'alta' : matchedSignals === 2 ? 'media' : 'baixa',
+    __imported: true,
+    __method: 'local-pdfjs',
+  }
 }
 
 export function normalizeAmount(raw) {
@@ -220,8 +269,48 @@ export function markPossibleDuplicates(imported, existing = []) {
 export function parseFinancialText(text, options = {}) {
   const referenceYear = options.referenceYear || new Date().getFullYear()
   const sourceFile = options.sourceFile || ''
-  const dateAnchor = /(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{1,2}\s*(?:de\s*)?[a-zç]{3,9})/gi
-  const amountPattern = /-?R?\$?\s?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}/g
+  const dateAnchor = /(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{1,2}\s*(?:de\s*)?[a-zà-ÿç]{3,9})/gi
+  const amountPattern = /[+−-]?\s*R?\$?\s?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}/g
+
+  // PicPay and similar account statements print one date heading followed by
+  // several time-based rows. Parse those rows before the generic card format.
+  const timedRows = []
+  const dayPattern = /\b(\d{1,2})\s+de\s+([a-zà-ÿç]{3,9})\s+(?:de\s+)?(\d{4})\b/gi
+  const dayAnchors = []
+  let dayMatch
+  while ((dayMatch = dayPattern.exec(text)) !== null) dayAnchors.push({ index: dayMatch.index, value: dayMatch[0] })
+
+  for (let dayIndex = 0; dayIndex < dayAnchors.length; dayIndex += 1) {
+    const day = dayAnchors[dayIndex]
+    const end = dayIndex + 1 < dayAnchors.length ? dayAnchors[dayIndex + 1].index : text.length
+    const block = text.slice(day.index, end).replace(/\s+/g, ' ').trim()
+    if (!/saldo\s+ao\s+final\s+do\s+dia/i.test(block)) continue
+    const date = normalizeDate(day.value, referenceYear)
+    if (!date) continue
+
+    const timePattern = /\b(?:[01]?\d|2[0-3]):[0-5]\d\b/g
+    const timeAnchors = []
+    let timeMatch
+    while ((timeMatch = timePattern.exec(block)) !== null) timeAnchors.push({ index: timeMatch.index, value: timeMatch[0] })
+
+    for (let timeIndex = 0; timeIndex < timeAnchors.length; timeIndex += 1) {
+      const start = timeAnchors[timeIndex].index
+      const rowEnd = timeIndex + 1 < timeAnchors.length ? timeAnchors[timeIndex + 1].index : block.length
+      const chunk = block.slice(start, rowEnd).trim()
+      const amounts = chunk.match(amountPattern)
+      if (!amounts?.length) continue
+      const amountRaw = amounts[amounts.length - 1]
+      const amount = normalizeAmount(amountRaw)
+      if (!amount || amount > 100_000_000) continue
+
+      const description = displayDescriptionFromRaw(chunk
+        .replace(timeAnchors[timeIndex].value, ' ')
+        .replace(amountRaw, ' ')
+        .replace(/\bcom\s+saldo\b/gi, ' '))
+      if (!description || description.length < 2 || isInformationalChunk(description)) continue
+      timedRows.push(createFinancialRow({ date, amount, rawDescription: chunk.slice(0, 240), description, sourceFile }))
+    }
+  }
 
   const anchors = []
   let match
@@ -247,40 +336,11 @@ export function parseFinancialText(text, options = {}) {
     const description = displayDescriptionFromRaw(chunk.replace(dateRaw, '').replace(amountRaw, ''))
     if (!description || description.length < 2 || isInformationalChunk(description)) continue
 
-    const lower = description.toLowerCase()
-    const type = INCOME_KEYWORDS.some((keyword) => lower.includes(keyword)) ? 'receita' : 'despesa'
-    const categoryGuess = type === 'receita'
-      ? { label: INCOME_CATEGORIES.includes('Outras receitas') ? 'Outras receitas' : INCOME_CATEGORIES[0], matched: false }
-      : guessFromKeywords(description, CATEGORY_KEYWORDS, 'Não categorizado')
-    const paymentGuess = guessFromKeywords(description, PAYMENT_KEYWORDS, 'Não identificado')
-
-    const matchedSignals = Number(categoryGuess.matched) + Number(paymentGuess.matched) + Number(description.length >= 4 && description.length <= 120)
-    const confidence = matchedSignals >= 3 ? 'alta' : matchedSignals === 2 ? 'media' : 'baixa'
-
-    rows.push({
-      id: uid(),
-      type,
-      amount,
-      rawDescription,
-      description,
-      category: type === 'receita'
-        ? categoryGuess.label
-        : (CATEGORIES.includes(categoryGuess.label) ? categoryGuess.label : 'Não categorizado'),
-      paymentMethod: PAYMENT_METHODS.includes(paymentGuess.label) ? paymentGuess.label : 'Não identificado',
-      date,
-      status: 'completed',
-      isRecurring: false,
-      notes: '',
-      source: 'pdf',
-      sourceFile,
-      confidence,
-      __imported: true,
-      __method: 'local-pdfjs',
-    })
+    rows.push(createFinancialRow({ date, amount, rawDescription, description, sourceFile }))
   }
 
   const seen = new Set()
-  return rows.filter((item) => {
+  return [...timedRows, ...rows].filter((item) => {
     const key = transactionFingerprint(item)
     if (seen.has(key)) return false
     seen.add(key)
@@ -303,8 +363,11 @@ export async function extractTransactionsFromPDFFree(file) {
     if (/invalid pdf|missing pdf|unexpected response|format error/i.test(message)) {
       throw new Error(`${file.name}: o arquivo não parece ser um PDF válido ou está corrompido.`, { cause: error })
     }
-    if (/undefined is not a function|withResolvers|arrayBuffer|file.?reader|access.*dados/i.test(message)) {
+    if (/file.?reader|access.*dados|could not read|not readable|notreadable/i.test(message)) {
       throw new Error(`${file.name}: não foi possível ler este PDF no dispositivo. Se ele estiver no iCloud, baixe-o primeiro e selecione novamente.`, { cause: error })
+    }
+    if (/undefined is not a function|withResolvers|transferToFixedLength/i.test(message)) {
+      throw new Error(`${file.name}: o leitor de PDF encontrou uma incompatibilidade com este navegador. Recarregue o UaiConta e tente novamente.`, { cause: error })
     }
     throw error
   }
