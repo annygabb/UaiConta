@@ -90,13 +90,25 @@ export function ensurePdfRuntimeCompatibility() {
   }
 }
 
+export function shouldUseMainThreadPdfWorker(userAgent = globalThis.navigator?.userAgent || '') {
+  return /AppleWebKit/i.test(userAgent) && !/Android/i.test(userAgent)
+}
+
 async function getPdfJs() {
   ensurePdfRuntimeCompatibility()
   if (!pdfjsPromise) {
-    pdfjsPromise = import('pdfjs-dist/legacy/build/pdf.mjs').then((module) => {
+    pdfjsPromise = (async () => {
+      // Safari workers have an isolated global scope and do not receive the
+      // ArrayBuffer fallback installed above. Running PDF.js' handler on the
+      // corrected main context avoids that incompatibility on Apple devices.
+      if (shouldUseMainThreadPdfWorker()) {
+        const { WorkerMessageHandler } = await import('pdfjs-dist/legacy/build/pdf.worker.mjs')
+        globalThis.pdfjsWorker = { WorkerMessageHandler }
+      }
+      const module = await import('pdfjs-dist/legacy/build/pdf.mjs')
       module.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
       return module
-    })
+    })()
   }
   return pdfjsPromise
 }

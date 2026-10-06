@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { displayDescriptionFromRaw, ensurePdfRuntimeCompatibility, isInformationalChunk, markPossibleDuplicates, parseFinancialText, readPdfFileAsArrayBuffer } from '../../src/pdfParserFree.js'
+import { displayDescriptionFromRaw, ensurePdfRuntimeCompatibility, isInformationalChunk, markPossibleDuplicates, parseFinancialText, readPdfFileAsArrayBuffer, shouldUseMainThreadPdfWorker } from '../../src/pdfParserFree.js'
 
 describe('parser local de PDF', () => {
   it('ignora aviso legal/contratual de fatura', () => {
@@ -50,6 +50,12 @@ describe('parser local de PDF', () => {
       if (original) Object.defineProperty(ArrayBuffer.prototype, 'transferToFixedLength', original)
       else delete ArrayBuffer.prototype.transferToFixedLength
     }
+  })
+
+  it('usa o modo sem worker isolado em navegadores Apple', () => {
+    expect(shouldUseMainThreadPdfWorker('Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1')).toBe(true)
+    expect(shouldUseMainThreadPdfWorker('Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 CriOS/153.0 Mobile/15E148 Safari/604.1')).toBe(true)
+    expect(shouldUseMainThreadPdfWorker('Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/153.0 Mobile Safari/537.36')).toBe(false)
   })
 
   it('lê extrato por blocos de data e horário com sinal unicode', () => {
