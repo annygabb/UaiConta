@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 
 const indexCss = readFileSync(new URL('../../src/index.css', import.meta.url), 'utf8')
 const mobileAuthCss = readFileSync(new URL('../../src/styles/v9-mobile-auth-fix.css', import.meta.url), 'utf8')
+const postAuthCss = readFileSync(new URL('../../src/styles/v12-post-auth-loader.css', import.meta.url), 'utf8')
+const tailwindConfig = readFileSync(new URL('../../tailwind.config.js', import.meta.url), 'utf8')
 
 describe('mobile auth layout guard', () => {
   it('loads the mobile auth hotfix after V9 mobile styles', () => {
@@ -23,5 +25,12 @@ describe('mobile auth layout guard', () => {
     expect(mobileAuthCss).toContain('font-size: 16px !important')
     expect(mobileAuthCss).toContain('env(safe-area-inset-top)')
     expect(mobileAuthCss).toContain('env(safe-area-inset-bottom)')
+  })
+
+  it('gera estilos TSX e centraliza o quadrado de carregamento sem depender do Tailwind', () => {
+    expect(tailwindConfig).toContain('{js,jsx,ts,tsx}')
+    expect(postAuthCss).toContain('.post-auth-loading-content>div')
+    expect(postAuthCss).toContain('align-items:center')
+    expect(postAuthCss).toContain('margin-inline:auto')
   })
 })

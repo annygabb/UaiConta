@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { displayDescriptionFromRaw, isInformationalChunk, markPossibleDuplicates, parseFinancialText } from '../../src/pdfParserFree.js'
+import { displayDescriptionFromRaw, isInformationalChunk, markPossibleDuplicates, parseFinancialText, readPdfFileAsArrayBuffer } from '../../src/pdfParserFree.js'
 
 describe('parser local de PDF', () => {
   it('ignora aviso legal/contratual de fatura', () => {
@@ -27,5 +27,11 @@ describe('parser local de PDF', () => {
     const marked = markPossibleDuplicates([row, { ...row, id:'2' }], [])
     expect(marked[0].__possibleDuplicate).toBe(false)
     expect(marked[1].__possibleDuplicate).toBe(true)
+  })
+
+  it('usa arrayBuffer quando FileReader não está disponível', async () => {
+    const expected = new Uint8Array([37, 80, 68, 70]).buffer
+    const result = await readPdfFileAsArrayBuffer({ arrayBuffer: async () => expected })
+    expect(new Uint8Array(result)).toEqual(new Uint8Array(expected))
   })
 })
