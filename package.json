@@ -17,7 +17,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:a11y": "playwright test tests/e2e/accessibility.spec.ts",
     "test:responsive": "playwright test tests/e2e/responsive.spec.ts",
-    "audit": "npm audit --audit-level=high",
+    "audit": "npm audit --omit=dev --audit-level=high",
     "lint": "eslint . --max-warnings=25",
     "build:demo": "vite build --mode demo",
     "test:unit": "vitest run tests/unit",
