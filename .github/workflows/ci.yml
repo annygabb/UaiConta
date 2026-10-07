@@ -44,11 +44,13 @@ jobs:
         with:
           node-version: 22
       - run: npm ci --no-audit --no-fund
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - name: Core E2E
         run: npm run test:e2e -- --project=desktop-chromium
       - name: Mobile E2E
         run: npm run test:e2e -- --project=mobile-chromium tests/e2e/uaiconta.spec.js
+      - name: Safari PDF import
+        run: npm run test:e2e -- --project=mobile-webkit tests/e2e/pdf-import-webkit.spec.js
       - name: Responsive matrix
         run: npm run test:responsive -- --project=desktop-chromium
       - name: Accessibility

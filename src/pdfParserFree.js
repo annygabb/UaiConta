@@ -71,9 +71,9 @@ export function ensurePdfRuntimeCompatibility() {
     }
   }
 
-  // PDF.js 6 uses this ES2024 method while preparing embedded fonts. Some
-  // Safari/iOS versions still do not expose it, even in the legacy bundle.
-  // A copied, fixed-size buffer is sufficient for PDF.js' internal use here.
+  // Keep this fallback for older cached PDF worker bundles. Current PDF.js 4
+  // does not require the method, but an open PWA can briefly mix old and new
+  // assets while the service worker activates.
   if (typeof ArrayBuffer !== 'undefined' && typeof ArrayBuffer.prototype.transferToFixedLength !== 'function') {
     Object.defineProperty(ArrayBuffer.prototype, 'transferToFixedLength', {
       configurable: true,
@@ -98,9 +98,9 @@ async function getPdfJs() {
   ensurePdfRuntimeCompatibility()
   if (!pdfjsPromise) {
     pdfjsPromise = (async () => {
-      // Safari workers have an isolated global scope and do not receive the
-      // ArrayBuffer fallback installed above. Running PDF.js' handler on the
-      // corrected main context avoids that incompatibility on Apple devices.
+      // Apple browsers share WebKit and can keep a stale worker alive while a
+      // PWA updates. Running the handler on the main context avoids mixing
+      // worker runtimes and preserves the local-only import flow.
       if (shouldUseMainThreadPdfWorker()) {
         const { WorkerMessageHandler } = await import('pdfjs-dist/legacy/build/pdf.worker.mjs')
         globalThis.pdfjsWorker = { WorkerMessageHandler }
@@ -379,7 +379,7 @@ export async function extractTransactionsFromPDFFree(file) {
       throw new Error(`${file.name}: não foi possível ler este PDF no dispositivo. Se ele estiver no iCloud, baixe-o primeiro e selecione novamente.`, { cause: error })
     }
     if (/undefined is not a function|withResolvers|transferToFixedLength/i.test(message)) {
-      throw new Error(`${file.name}: o leitor de PDF encontrou uma incompatibilidade com este navegador. Recarregue o UaiConta e tente novamente.`, { cause: error })
+      throw new Error(`${file.name}: o leitor de PDF não iniciou corretamente. Feche esta aba, abra o UaiConta novamente e toque em Tentar novamente.`, { cause: error })
     }
     throw error
   }
