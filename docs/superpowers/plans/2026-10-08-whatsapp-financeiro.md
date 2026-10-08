@@ -138,4 +138,3 @@
 - [ ] **Step 3: Add setup and troubleshooting instructions** para WhatsApp Business e Cloud API.
 - [ ] **Step 4: Run lint, typecheck, unit, security and simulated E2E suites**.
 - [ ] **Step 5: Commit** com `docs(whatsapp): add self-host deployment guide`.
-
