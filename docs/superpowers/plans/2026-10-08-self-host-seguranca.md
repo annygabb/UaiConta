@@ -116,4 +116,3 @@
 - [ ] **Step 4: Perform a clean-room install** seguindo apenas `docs/SELF_HOST.md` e registrar qualquer lacuna.
 - [ ] **Step 5: Run the full pipeline** e confirmar sucesso.
 - [ ] **Step 6: Commit** com `docs(self-host): add reproducible installation guide`.
-
