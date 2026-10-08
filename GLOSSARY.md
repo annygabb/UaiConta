@@ -47,4 +47,3 @@ Uma instalação independente do UaiConta, com hospedagem, Supabase, dados e int
 ## Self-hosted
 
 Modelo em que cada pessoa instala e administra sua própria instância do projeto.
-
