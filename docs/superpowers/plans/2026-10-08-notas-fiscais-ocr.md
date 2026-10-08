@@ -117,4 +117,3 @@
 - [ ] **Step 2: Run `npm run lint`, `npm run typecheck`, `npm run test:unit`, `npm run test:security`, `npm run test:e2e -- tests/e2e/receipt-import.spec.ts` and `npm run build:demo`**.
 - [ ] **Step 3: Document supported formats and review behavior**.
 - [ ] **Step 4: Commit** com `docs(receipts): document verified import behavior`.
-
