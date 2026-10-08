@@ -1,7 +1,7 @@
 # UaiConta — Importação inteligente e WhatsApp
 
-**Data:** 08/10/2026  
-**Status:** desenho aprovado  
+**Data:** 08/10/2026
+**Status:** desenho aprovado
 **Destino:** projeto open source e self-hosted `annygabb/UaiConta`
 
 ## Objetivo
@@ -241,4 +241,3 @@ O repositório terá `.env.example`, migrations reproduzíveis e documentação 
 2. OCR estruturado de notas e confirmação atômica.
 3. WhatsApp, vinculação e máquina de estados.
 4. Assistente self-hosted, segurança e documentação.
-
