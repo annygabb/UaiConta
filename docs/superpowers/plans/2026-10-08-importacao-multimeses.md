@@ -134,4 +134,3 @@
 - [ ] **Step 3: Gate `onImport`** para impedir persistência de rascunhos inválidos e remover metadados apenas depois de convertê-los em campos persistíveis.
 - [ ] **Step 4: Run `npm run lint`, `npm run typecheck`, `npm run test:unit`, `npm run test:e2e -- tests/e2e/pdf-import-webkit.spec.js tests/e2e/import-review.spec.ts` and `npm run build:demo`**.
 - [ ] **Step 5: Commit** com `test(import): verify reviewed drafts before persistence`.
-
