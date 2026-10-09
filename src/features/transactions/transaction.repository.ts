@@ -31,7 +31,7 @@ function fromRow(row: Record<string, any>): Transaction {
   }
 }
 
-function toRow(tx: Partial<Transaction>, userId: string) {
+function toRow(tx: Partial<Transaction> & { imported?: boolean }, userId: string) {
   const amountCents = Number(tx.amountCents ?? reaisToCents(tx.amount ?? 0))
   return {
     id: tx.id,
@@ -56,7 +56,7 @@ function toRow(tx: Partial<Transaction>, userId: string) {
     source: tx.source || (tx.__imported ? 'pdf' : 'manual'),
     source_file: tx.sourceFile || null,
     confidence: tx.confidence || 'alta',
-    imported: Boolean(tx.__imported),
+    imported: Boolean(tx.imported ?? tx.__imported ?? (tx.source && tx.source !== 'manual')),
     updated_at: new Date().toISOString(),
   }
 }
@@ -80,7 +80,7 @@ export const transactionRepository = {
     return (data || []).map(fromRow)
   },
 
-  async upsert(tx: Partial<Transaction>) {
+  async upsert(tx: Partial<Transaction> & { imported?: boolean }) {
     const [client, user] = [getSupabaseClient(), await requireUser()]
     const { data, error } = await client
       .from('transactions')
@@ -91,7 +91,7 @@ export const transactionRepository = {
     return fromRow(data)
   },
 
-  async upsertMany(rows: Partial<Transaction>[]) {
+  async upsertMany(rows: Array<Partial<Transaction> & { imported?: boolean }>) {
     const [client, user] = [getSupabaseClient(), await requireUser()]
     const payload = rows.map((row) => toRow(row, user.id))
     const { data, error } = await client
