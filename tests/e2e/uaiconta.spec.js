@@ -71,3 +71,28 @@ test('rota direta funciona após refresh', async ({ page }) => {
   await enterDemo(page)
   await expect(page.getByRole('heading', { name: 'Análises', exact: true })).toBeVisible()
 })
+
+test('oferece quatro decisões quando encontra uma possível duplicidade', async ({ page }) => {
+  await openTransactionForm(page)
+  await page.getByLabel('Valor').fill('12590')
+  await page.getByPlaceholder('Ex: Supermercado da semana').fill('Supermercado Central')
+  await page.getByRole('button', { name: 'Adicionar movimentação' }).last().click()
+
+  await page.getByRole('link', { name: 'Mais' }).first().click()
+  await page.getByRole('button', { name: 'Importar arquivos' }).click()
+  const today = await page.evaluate(() => new Date().toISOString().slice(0, 10))
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'outro-banco.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(`data;descricao;valor;categoria;forma_pagamento\n${today};SUPERMERCADO CENTRAL;-125,90;Supermercado;Pix`),
+  })
+
+  await expect(page.getByText('possível duplicado')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Manter as duas' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Ignorar a nova' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Substituir a anterior' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Corrigir informações' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Manter as duas' }).click()
+  await expect(page.getByText('Decisão: manter as duas')).toBeVisible()
+})

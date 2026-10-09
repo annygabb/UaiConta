@@ -1,6 +1,8 @@
 import pdfjsWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.mjs?url'
 import { CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from './constants.js'
 import { isoDate, normalizeDescription, uid } from './utils.js'
+import { resolveTransactionDate, scanMonthAnchors } from './features/import/dateResolution'
+import { findDuplicateCandidates } from './features/import/duplicateDetection'
 
 const MONTHS_PT = {
   jan: '01', fev: '02', mar: '03', abr: '04', mai: '05', jun: '06',
@@ -48,6 +50,8 @@ const INFORMATIONAL_PATTERNS = [
   /contrato|termos\s+e\s+condi[cç][oõ]es|aviso\s+legal/i,
   /este\s+documento|consulte\s+seu\s+contrato/i,
   /vencimento\s+da\s+fatura|total\s+da\s+fatura|pagamento\s+m[ií]nimo/i,
+  /^saldo\s+(?:dispon[ií]vel|atual|anterior)\b/i,
+  /^total\s+(?:do\s+per[ií]odo|de\s+entradas|de\s+sa[ií]das)\b/i,
 ]
 
 const HEADER_PATTERNS = [
@@ -160,7 +164,7 @@ function guessFromKeywords(text, dict, fallback) {
   return { label: fallback, matched: false }
 }
 
-function createFinancialRow({ date, amount, rawDescription, description, sourceFile }) {
+function createFinancialRow({ date, amount, rawDescription, description, sourceFile, dateResolution }) {
   const lower = description.toLowerCase()
   const type = INCOME_KEYWORDS.some((keyword) => lower.includes(keyword)) ? 'receita' : 'despesa'
   const categoryGuess = type === 'receita'
@@ -169,10 +173,22 @@ function createFinancialRow({ date, amount, rawDescription, description, sourceF
   const paymentGuess = guessFromKeywords(description, PAYMENT_KEYWORDS, 'Não identificado')
   const matchedSignals = Number(categoryGuess.matched) + Number(paymentGuess.matched) + Number(description.length >= 4 && description.length <= 120)
 
+  const resolvedDate = dateResolution || {
+    value: date,
+    rule: 'line_full_date',
+    source: { kind: 'line_text' },
+    confidence: 'alta',
+    evidence: date,
+    ambiguous: false,
+  }
+  const amountCents = Math.round(amount * 100)
+  const confidence = matchedSignals >= 3 ? 'alta' : matchedSignals === 2 ? 'media' : 'baixa'
+
   return {
     id: uid(),
     type,
     amount,
+    amountCents,
     rawDescription,
     description,
     category: type === 'receita'
@@ -185,7 +201,42 @@ function createFinancialRow({ date, amount, rawDescription, description, sourceF
     notes: '',
     source: 'pdf',
     sourceFile,
-    confidence: matchedSignals >= 3 ? 'alta' : matchedSignals === 2 ? 'media' : 'baixa',
+    confidence,
+    dateResolution: resolvedDate,
+    fieldEvidence: {
+      type: {
+        value: type,
+        source: { kind: 'system_suggestion' },
+        confidence: 'media',
+        evidence: rawDescription,
+      },
+      amountCents: {
+        value: amountCents,
+        source: { kind: 'line_text' },
+        confidence: 'alta',
+        evidence: rawDescription,
+      },
+      description: {
+        value: description,
+        source: { kind: 'line_text' },
+        confidence: 'alta',
+        evidence: rawDescription,
+      },
+      date: resolvedDate,
+      category: {
+        value: categoryGuess.label,
+        source: { kind: 'system_suggestion' },
+        confidence: categoryGuess.matched ? 'alta' : 'baixa',
+        evidence: rawDescription,
+      },
+      paymentMethod: {
+        value: paymentGuess.label,
+        source: { kind: 'system_suggestion' },
+        confidence: paymentGuess.matched ? 'alta' : 'baixa',
+        evidence: rawDescription,
+      },
+    },
+    requiresReview: Boolean(resolvedDate.ambiguous || !resolvedDate.value || !amountCents || description.length < 2),
     __imported: true,
     __method: 'local-pdfjs',
   }
@@ -263,18 +314,19 @@ export function transactionFingerprint(transaction) {
     Number(transaction.amount || 0).toFixed(2),
     normalizeDescription(transaction.description),
     transaction.paymentMethod || '',
-    transaction.sourceFile || '',
   ].join('|')
 }
 
 export function markPossibleDuplicates(imported, existing = []) {
-  const existingKeys = new Set(existing.map(transactionFingerprint))
-  const batchKeys = new Set()
+  const batch = []
   return imported.map((item) => {
-    const key = transactionFingerprint(item)
-    const duplicate = existingKeys.has(key) || batchKeys.has(key)
-    batchKeys.add(key)
-    return { ...item, __possibleDuplicate: duplicate }
+    const candidates = findDuplicateCandidates(item, existing, batch)
+    batch.push(item)
+    return {
+      ...item,
+      __possibleDuplicate: candidates.length > 0,
+      __duplicateCandidates: candidates,
+    }
   })
 }
 
@@ -283,6 +335,65 @@ export function parseFinancialText(text, options = {}) {
   const sourceFile = options.sourceFile || ''
   const dateAnchor = /(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{1,2}\s*(?:de\s*)?[a-zà-ÿç]{3,9})/gi
   const amountPattern = /[+−-]?\s*R?\$?\s?(?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}/g
+
+  const monthAnchors = scanMonthAnchors(text, referenceYear)
+  const monthRows = []
+  for (let anchorIndex = 0; anchorIndex < monthAnchors.length; anchorIndex += 1) {
+    const anchor = monthAnchors[anchorIndex]
+    const blockStart = anchor.index + anchor.text.length
+    const blockEnd = anchorIndex + 1 < monthAnchors.length ? monthAnchors[anchorIndex + 1].index : text.length
+    const block = text.slice(blockStart, blockEnd)
+    const chunks = []
+
+    if (block.includes('\n')) {
+      let offset = 0
+      for (const line of block.split('\n')) {
+        const leading = line.length - line.trimStart().length
+        if (line.trim()) chunks.push({ text: line.trim(), position: blockStart + offset + leading })
+        offset += line.length + 1
+      }
+    } else {
+      const localAmounts = [...block.matchAll(new RegExp(amountPattern.source, 'g'))]
+      let cursor = 0
+      for (const amountMatch of localAmounts) {
+        const end = (amountMatch.index || 0) + amountMatch[0].length
+        const rawChunk = block.slice(cursor, end)
+        const leading = rawChunk.length - rawChunk.trimStart().length
+        if (rawChunk.trim()) chunks.push({ text: rawChunk.trim(), position: blockStart + cursor + leading })
+        cursor = end
+      }
+    }
+
+    for (const candidate of chunks) {
+      const dateResolution = resolveTransactionDate({
+        lineText: candidate.text,
+        position: candidate.position,
+        monthAnchors,
+        referenceYear,
+      })
+      if (dateResolution.rule !== 'month_heading' || !dateResolution.value || isInformationalChunk(candidate.text)) continue
+
+      const amounts = candidate.text.match(new RegExp(amountPattern.source, 'g'))
+      if (!amounts?.length || amounts.length > 3) continue
+      const amountRaw = amounts[amounts.length - 1]
+      const amount = normalizeAmount(amountRaw)
+      if (!amount || amount > 100_000_000) continue
+
+      const rawDescription = candidate.text.slice(0, 240)
+      const dayRaw = candidate.text.match(/^\s*\d{1,2}/)?.[0] || ''
+      const description = displayDescriptionFromRaw(candidate.text.replace(dayRaw, '').replace(amountRaw, ''))
+      if (!description || description.length < 2 || isInformationalChunk(description)) continue
+
+      monthRows.push(createFinancialRow({
+        date: dateResolution.value,
+        dateResolution,
+        amount,
+        rawDescription,
+        description,
+        sourceFile,
+      }))
+    }
+  }
 
   // PicPay and similar account statements print one date heading followed by
   // several time-based rows. Parse those rows before the generic card format.
@@ -352,7 +463,7 @@ export function parseFinancialText(text, options = {}) {
   }
 
   const seen = new Set()
-  return [...timedRows, ...rows].filter((item) => {
+  return [...timedRows, ...monthRows, ...rows].filter((item) => {
     const key = transactionFingerprint(item)
     if (seen.has(key)) return false
     seen.add(key)
