@@ -40,6 +40,7 @@ import RecurrencesPage from './pages/settings/RecurrencesPage.jsx'
 import BudgetsPage from './pages/settings/BudgetsPage.jsx'
 import GoalsPage from './pages/settings/GoalsPage.jsx'
 import ReceiptsPage from './pages/settings/ReceiptsPage.jsx'
+import WhatsAppPage from './pages/settings/WhatsAppPage.tsx'
 import DataPrivacyPage from './pages/settings/DataPrivacyPage.jsx'
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx'
 import TermsPrivacyPage from './pages/TermsPrivacyPage.jsx'
@@ -362,6 +363,7 @@ export default function UaiConta() {
             <Route path={ROUTES.budgets} element={<BudgetsPage />} />
             <Route path={ROUTES.goals} element={<GoalsPage />} />
             <Route path={ROUTES.receipts} element={<ReceiptsPage />} />
+            <Route path={ROUTES.whatsapp} element={<WhatsAppPage />} />
             <Route path={ROUTES.preferences} element={<Navigate to={ROUTES.more} replace />} />
             <Route path={ROUTES.privacy} element={<Navigate to={`${ROUTES.legal}#privacidade`} replace />} />
             <Route path={ROUTES.data} element={<DataPrivacyPage mode="data" onAccountDeleted={() => { setSession(null); setTransactions([]) }} />} />

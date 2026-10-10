@@ -22,6 +22,8 @@ A proposta não é ser só um dashboard: o projeto separa **realizado x previsto
 - OCR open source para imagens e documentos digitalizados;
 - categorização como sugestão, com confiança e aviso de duplicidade;
 - notas, cupons e comprovantes em PDF/imagem/câmera;
+- leitura estruturada de estabelecimento, data, itens, total e forma de pagamento, sempre com revisão;
+- automação financeira opcional pelo WhatsApp com confirmação `1`, descarte `2` e correção `3`;
 - documentos privados no Supabase Storage;
 - exportação de dados em JSON, PDF e Excel;
 - interface responsiva, PWA e navegação mobile;
@@ -95,6 +97,14 @@ Formatos suportados incluem PDF, JPG, PNG e WEBP. No mobile também é possível
 
 Os arquivos ficam no bucket privado `financial-documents` quando o Supabase está configurado, com acesso autenticado e URLs assinadas de curta duração.
 
+A leitura estrutura itens, quantidades e valores. Antes de criar a despesa, a tela compara a soma dos itens com o total e sinaliza divergências; nenhum ajuste é inventado silenciosamente.
+
+### WhatsApp financeiro opcional
+
+Cada instalação vincula seu próprio WhatsApp Cloud API ao seu próprio Supabase. Texto, imagem, PDF ou áudio geram um rascunho; somente a resposta `1` cria a movimentação. `2` ignora e `3` permite corrigir valor, data, categoria ou descrição. A integração valida assinatura da Meta, evita webhooks duplicados e não expõe tokens no navegador.
+
+Imagem/PDF e áudio no webhook usam adaptadores self-host opcionais. Sem eles, o arquivo continua privado e o bot solicita os dados em texto. Veja [`docs/WHATSAPP_SELF_HOST.md`](./docs/WHATSAPP_SELF_HOST.md).
+
 ### Dados e backup
 
 A área **Dados e backup** permite escolher o formato conforme o objetivo:
@@ -153,7 +163,10 @@ src/
 supabase/
 ├── schema.sql
 ├── migrations/
-└── functions/delete-account/
+└── functions/
+    ├── delete-account/
+    ├── cleanup-receipt-imports/
+    └── whatsapp-webhook/
 
 tests/
 ├── unit/
@@ -195,8 +208,9 @@ O modo Demo é explícito e usa persistência local apenas para desenvolvimento/
 2. Execute `supabase/schema.sql` para a base inicial.
 3. Aplique as migrations incrementais de `supabase/migrations/` na ordem.
 4. Faça deploy da função de exclusão com `supabase functions deploy delete-account`.
-5. Copie `.env.example` para `.env.local`.
-6. Configure:
+5. Se quiser WhatsApp, siga [`docs/WHATSAPP_SELF_HOST.md`](./docs/WHATSAPP_SELF_HOST.md).
+6. Copie `.env.example` para `.env.local`.
+7. Configure:
 
 ```env
 VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
@@ -204,7 +218,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=SUA_CHAVE_PUBLICA
 VITE_ENABLE_DEMO_MODE=false
 ```
 
-7. Rode:
+8. Rode:
 
 ```bash
 npm install
