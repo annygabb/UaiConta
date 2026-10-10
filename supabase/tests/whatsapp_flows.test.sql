@@ -12,6 +12,7 @@ select lives_ok($$select public.prepare_receipt_import('aaaaaaaa-aaaa-4aaa-8aaa-
 select throws_ok($$select public.prepare_receipt_import('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','manifest-b')$$,'P0001','Este lote já foi preparado com outro conteúdo','rejeita manifesto divergente');
 create temp table issued_code as select * from public.create_whatsapp_pairing_code();
 select matches((select code from issued_code),'^[0-9]{8}$','gera código criptográfico com seletor');
+select set_config('test.pairing_code',(select code from issued_code),false);
 
 set local role postgres;
 select is((select storage_prefix from public.receipt_import_batches where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'), '11111111-1111-4111-8111-111111111111/receipts/pending/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/','prefixo vem do usuário autenticado');
@@ -26,9 +27,9 @@ select is((select count(*)::int from public.claim_abandoned_receipt_imports(10))
 
 select is(public.claim_whatsapp_message(null,'wamid.pair','text','{}')->>'state','claimed','claim aceita remetente ainda não vinculado');
 select is(public.claim_whatsapp_message(null,'wamid.pair','text','{}')->>'state','busy','retry durante lease informa worker ocupado');
-select isnt(public.consume_whatsapp_pairing_code((select id from public.whatsapp_messages where external_id='wamid.pair'),(select code from issued_code),'phone-hash-one','9999'),null::uuid,'consome código e cria vínculo');
+select isnt(public.consume_whatsapp_pairing_code((select id from public.whatsapp_messages where external_id='wamid.pair'),current_setting('test.pairing_code'),'phone-hash-one','9999'),null::uuid,'consome código e cria vínculo');
 select is((select result_payload->>'kind' from public.whatsapp_messages where external_id='wamid.pair'),'paired','resultado do pareamento fica persistido no inbox');
-select is(public.consume_whatsapp_pairing_code((select id from public.whatsapp_messages where external_id='wamid.pair'),(select code from issued_code),'phone-hash-one','9999'),null::uuid,'código não pode ser reutilizado');
+select is(public.consume_whatsapp_pairing_code((select id from public.whatsapp_messages where external_id='wamid.pair'),current_setting('test.pairing_code'),'phone-hash-one','9999'),null::uuid,'código não pode ser reutilizado');
 update public.whatsapp_messages set processing_status='processed',processed_at=now() where external_id='wamid.pair';
 select is(public.claim_whatsapp_message(null,'wamid.pair','text','{}')->>'state','processed','replay concluído não reprocessa a mensagem');
 
