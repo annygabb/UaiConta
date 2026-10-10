@@ -1,0 +1,7 @@
+project_id = "uaiconta"
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.cleanup-receipt-imports]
+verify_jwt = false

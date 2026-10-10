@@ -17,6 +17,13 @@ export interface ReceiptFileUpload {
   pageOrder?: number
 }
 
+export interface StructuredReceiptDraft extends ReceiptDraft {
+  importBatchId: string
+  category?: string
+  paymentMethod?: string
+  items: Array<{ description: string; quantity: number; unitPriceCents: number | null; totalPriceCents: number; confidence: string }>
+}
+
 async function requireUser() {
   const client = getSupabaseClient()
   const { data, error } = await client.auth.getUser()
@@ -26,6 +33,11 @@ async function requireUser() {
 
 async function sha256(file: File) {
   const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+async function sha256Text(value: string) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
   return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
@@ -100,6 +112,44 @@ export const receiptRepository = {
     }
 
     return receipt
+  },
+
+  async createStructured(draft: StructuredReceiptDraft, files: ReceiptFileUpload[]) {
+    const client = getSupabaseClient()
+    const user = await requireUser()
+    const batchId = draft.importBatchId
+    const uploaded: Array<Record<string, unknown>> = []
+    try {
+      const fileHashes = await Promise.all(files.map((entry) => sha256(entry.file)))
+      const payloadHash = await sha256Text(JSON.stringify({
+        merchantName: draft.merchantName || null, documentType: draft.documentType, documentDate: draft.documentDate || null,
+        totalAmountCents: draft.totalAmountCents ?? null, category: draft.category || null, paymentMethod: draft.paymentMethod || null,
+        notes: draft.notes || null, items: draft.items, files: files.map((entry, index) => ({ hash: fileHashes[index], name: entry.file.name, size: entry.file.size, type: entry.file.type })),
+      }))
+      const storagePaths = files.map((entry, index) => `${user.id}/receipts/pending/${batchId}/${String(index + 1).padStart(3, '0')}-${fileHashes[index]}-${safeFilename(entry.file.name)}`)
+      const { error: prepareError } = await client.rpc('prepare_receipt_import', { p_batch_id: batchId, p_payload_hash: payloadHash })
+      if (prepareError) throw prepareError
+      for (let index = 0; index < files.length; index += 1) {
+        const entry = files[index]
+        const fileHash = fileHashes[index]
+        const path = storagePaths[index]
+        const { error } = await client.storage.from('financial-documents').upload(path, entry.file, { upsert: false, contentType: entry.file.type || undefined })
+        if (error && !/duplicate|already exists/i.test(String(error.message || error))) throw error
+        uploaded.push({ storage_path: path, original_filename: entry.file.name, mime_type: entry.file.type || 'application/octet-stream', file_size: entry.file.size, page_order: entry.pageOrder ?? index, file_hash: fileHash })
+      }
+      const { data, error } = await client.rpc('confirm_receipt_import', {
+        p_receipt: { import_batch_id: batchId, import_payload_hash: payloadHash, merchant_name: draft.merchantName, document_type: draft.documentType, document_date: draft.documentDate, total_amount_cents: draft.totalAmountCents, category: draft.category, payment_method: draft.paymentMethod, notes: draft.notes },
+        p_items: draft.items.map((item) => ({ description: item.description, quantity: item.quantity, unit_price_cents: item.unitPriceCents, total_price_cents: item.totalPriceCents, confidence: item.confidence })),
+        p_files: uploaded,
+      })
+      if (error) throw error
+      return data
+    } catch (error) {
+      // Não remova aqui: uma perda de rede pode acontecer depois do commit do
+      // RPC. O mesmo batch id pode ser reenviado com segurança; órfãos nunca
+      // confirmados são responsabilidade de uma rotina de retenção.
+      throw error
+    }
   },
 
   async getSignedUrl(storagePath: string, expiresIn = 60) {

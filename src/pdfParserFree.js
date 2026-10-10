@@ -299,13 +299,75 @@ async function extractRawText(file) {
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber)
       const content = await page.getTextContent()
-      fullText += `${content.items.map((item) => item.str || '').join(' ')}\n`
+      let previousY = null
+      const lines = []
+      let current = []
+      for (const item of content.items) {
+        const y = Math.round(item.transform?.[5] || 0)
+        if (previousY !== null && Math.abs(y - previousY) > 3 && current.length) {
+          lines.push(current.join(' '))
+          current = []
+        }
+        current.push(item.str || '')
+        previousY = y
+      }
+      if (current.length) lines.push(current.join(' '))
+      fullText += `${lines.join('\n')}\n`
       page.cleanup?.()
     }
   } finally {
     await pdf.destroy?.()
   }
   return fullText
+}
+
+/** Extrai o texto visual do PDF localmente, preservando linhas para cupons/notas. */
+export async function extractTextFromPDFFree(file) {
+  if (!file || (file.type !== 'application/pdf' && !file.name?.toLowerCase().endsWith('.pdf'))) throw new Error('Selecione um arquivo PDF válido.')
+  return extractRawText(file)
+}
+
+export async function extractPdfPageTexts(file) {
+  const pdfjsLib = await getPdfJs()
+  const buffer = await readPdfFileAsArrayBuffer(file)
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer), isEvalSupported: false, useWorkerFetch: false })
+  const pdf = await loadingTask.promise
+  const pages = []
+  try {
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber)
+      const content = await page.getTextContent()
+      pages.push({ pageNumber, text: content.items.map((item) => item.str || '').join(' ').replace(/\s+/g, ' ').trim() })
+      page.cleanup?.()
+    }
+  } finally { await pdf.destroy?.() }
+  return pages
+}
+
+/** Rasteriza páginas localmente para OCR quando o PDF não possui camada de texto. */
+export async function rasterizePdfPages(file, pageNumbers = []) {
+  const pdfjsLib = await getPdfJs()
+  const buffer = await readPdfFileAsArrayBuffer(file)
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer), isEvalSupported: false, useWorkerFetch: false })
+  const pdf = await loadingTask.promise
+  const images = []
+  try {
+    const requested = pageNumbers.length ? pageNumbers : Array.from({ length: pdf.numPages }, (_, index) => index + 1)
+    for (const pageNumber of requested) {
+      const page = await pdf.getPage(pageNumber)
+      const viewport = page.getViewport({ scale: 1.7 })
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.ceil(viewport.width)
+      canvas.height = Math.ceil(viewport.height)
+      const context = canvas.getContext('2d', { alpha: false })
+      if (!context) throw new Error('O navegador não conseguiu preparar a página para OCR.')
+      await page.render({ canvasContext: context, viewport }).promise
+      const blob = await new Promise((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Falha ao converter a página.')), 'image/jpeg', 0.9))
+      images.push(new File([blob], `${file.name}-pagina-${pageNumber}.jpg`, { type: 'image/jpeg' }))
+      page.cleanup?.()
+    }
+  } finally { await pdf.destroy?.() }
+  return images
 }
 
 export function transactionFingerprint(transaction) {
