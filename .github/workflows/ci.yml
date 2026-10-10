@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.120.0
       - name: Start local Supabase without applying incremental migrations
         run: |
           mkdir -p /tmp/uaiconta-migrations
@@ -36,7 +36,10 @@ jobs:
         run: supabase db lint --local --level warning
       - name: Stop local Supabase
         if: always()
-        run: supabase stop --no-backup
+        run: |
+          if command -v supabase >/dev/null 2>&1; then
+            supabase stop --no-backup
+          fi
 
   quality:
     runs-on: ubuntu-latest
