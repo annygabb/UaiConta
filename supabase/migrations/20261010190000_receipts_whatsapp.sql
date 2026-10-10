@@ -163,7 +163,8 @@ declare uid uuid:=auth.uid(); candidate text; selector text; random_value bigint
 begin
   if uid is null then raise exception 'Usuário não autenticado'; end if;
   if exists(select 1 from public.whatsapp_pairing_codes where user_id=uid and created_at>now()-interval '1 minute') then raise exception 'Aguarde um minuto para gerar outro código'; end if;
-  delete from public.whatsapp_pairing_codes where user_id=uid or expires_at<now()-interval '1 day';
+  delete from public.whatsapp_pairing_codes as pairing_code
+  where pairing_code.user_id=uid or pairing_code.expires_at<now()-interval '1 day';
   random_value:=('x'||encode(gen_random_bytes(4),'hex'))::bit(32)::bigint;
   selector:=lpad((random_value%100)::text,2,'0');
   candidate:=selector||lpad(((random_value/100)%1000000)::text,6,'0');
