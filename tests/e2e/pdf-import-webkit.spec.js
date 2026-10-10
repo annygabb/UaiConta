@@ -32,6 +32,6 @@ test('importa PDF local no WebKit móvel', async ({ page }) => {
   })
 
   await expect(page.getByText(/1 itens encontrados/i)).toBeVisible({ timeout: 20_000 })
-  await expect(page.getByText(/SUPERMERCADO CENTRAL/i).first()).toBeVisible()
+  await expect(page.getByDisplayValue(/SUPERMERCADO CENTRAL/i).first()).toBeVisible()
   await expect(page.getByText(/incompatibilidade com este navegador/i)).toHaveCount(0)
 })
