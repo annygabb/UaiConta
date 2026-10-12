@@ -2,6 +2,9 @@ import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from '../../co
 import { extractTransactionsFromPDFFree } from '../../pdfParserFree.js'
 import { recognizeImage, normalizeReceiptText } from '../receipts/ocr.ts'
 import { uid } from '../../utils.js'
+import { resolveTransactionDate } from './dateResolution.ts'
+import { summarizeDraftConfidence } from './provenance.ts'
+import { parseReceiptText } from './receiptTextParser.ts'
 
 function searchable(value = '') {
   const source = String(value)
@@ -58,15 +61,6 @@ export function suggestPaymentMethod(value = '') {
   if (text.includes('dinheiro') || text.includes('cash')) return 'Dinheiro'
   if (text.includes('transferencia') || /\bted\b|\bdoc\b/.test(text)) return 'Transferência'
   return 'Não identificado'
-}
-
-function normalizeDate(value = '') {
-  const clean = String(value || '').trim()
-  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean
-  const match = clean.match(/(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/)
-  if (!match) return new Date().toISOString().slice(0, 10)
-  const year = match[3].length === 2 ? Number(`20${match[3]}`) : Number(match[3])
-  return `${year}-${String(Number(match[2])).padStart(2, '0')}-${String(Number(match[1])).padStart(2, '0')}`
 }
 
 function parseMoney(value) {
@@ -142,53 +136,65 @@ async function extractCsv(file) {
     const suppliedCategory = categoryIndex >= 0 ? cells[categoryIndex] : ''
     const suppliedPayment = paymentIndex >= 0 ? cells[paymentIndex] : ''
     const paymentMethod = PAYMENT_METHODS.includes(suppliedPayment) ? suppliedPayment : suggestPaymentMethod(`${description} ${suppliedPayment}`)
-    return {
+    const receivedAt = Number(file.lastModified) > 0 ? new Date(file.lastModified).toISOString() : undefined
+    const dateResolution = resolveTransactionDate({
+      lineText: dateIndex >= 0 ? cells[dateIndex] : '',
+      position: rowIndex + 1,
+      referenceYear: receivedAt ? Number(receivedAt.slice(0, 4)) : new Date().getFullYear(),
+      receivedAt,
+      receivedSourceKind: 'upload_date',
+    })
+    const draft = {
       id: uid(),
-      type,
-      amount: Math.abs(signed),
-      description,
-      rawDescription: line,
-      category: suppliedCategory || suggestCategory(description, type),
-      categorySuggested: !suppliedCategory,
-      paymentMethod,
-      date: dateIndex >= 0 ? normalizeDate(cells[dateIndex]) : new Date().toISOString().slice(0, 10),
-      source: 'csv',
-      sourceFile: file.name,
-      confidence: suppliedCategory ? 'alta' : 'media',
-      __imported: true,
+      source: { kind: 'csv', fileName: file.name },
+      rawText: line,
+      fields: {
+        type: { value: type, source: { kind: 'line_text', line: rowIndex + 2 }, confidence: rawType ? 'alta' : 'media', evidence: rawType || description },
+        amountCents: { value: Math.round(Math.abs(signed) * 100), source: { kind: 'line_text', line: rowIndex + 2 }, confidence: 'alta', evidence: cells[amountIndex] },
+        description: { value: description, source: { kind: 'line_text', line: rowIndex + 2 }, confidence: 'alta', evidence: description },
+        date: dateResolution,
+        category: { value: suppliedCategory || suggestCategory(description, type), source: { kind: suppliedCategory ? 'line_text' : 'system_suggestion', line: rowIndex + 2 }, confidence: suppliedCategory ? 'alta' : 'media', evidence: suppliedCategory || description },
+        paymentMethod: { value: paymentMethod, source: { kind: suppliedPayment ? 'line_text' : 'system_suggestion', line: rowIndex + 2 }, confidence: paymentMethod === 'Não identificado' ? 'baixa' : suppliedPayment ? 'alta' : 'media', evidence: suppliedPayment || description },
+      },
     }
+    return draftToLegacyRow(draft)
   }).filter((row) => row.amount > 0)
 }
 
-function firstLikelyMerchant(text) {
-  return String(text || '').split(/\r?\n/).map((line) => line.trim()).find((line) => line.length >= 3 && line.length <= 60 && !/cnpj|cpf|cupom|nota fiscal|www\.|http/i.test(line)) || 'Documento importado'
-}
-
-function largestMoney(text) {
-  const matches = String(text || '').match(/(?:R\$\s*)?\d{1,3}(?:\.\d{3})*,\d{2}|(?:R\$\s*)?\d+\.\d{2}/g) || []
-  return matches.map(parseMoney).filter((value) => Number.isFinite(value) && value > 0).sort((a, b) => b - a)[0] || 0
-}
-
-function dateFromText(text) {
-  const match = String(text || '').match(/\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b/)
-  return match ? normalizeDate(match[0]) : new Date().toISOString().slice(0, 10)
+function draftToLegacyRow(draft) {
+  const summary = summarizeDraftConfidence(draft)
+  const { fields } = draft
+  return {
+    id: draft.id,
+    type: fields.type.value || 'despesa',
+    amount: (fields.amountCents.value || 0) / 100,
+    amountCents: fields.amountCents.value || 0,
+    description: fields.description.value || 'Documento importado',
+    rawDescription: draft.rawText || '',
+    category: fields.category.value || 'Não categorizado',
+    categorySuggested: fields.category.source.kind === 'system_suggestion',
+    paymentMethod: fields.paymentMethod.value || 'Não identificado',
+    date: fields.date.value || '',
+    dateResolution: fields.date,
+    fieldEvidence: fields,
+    requiresReview: summary.requiresReview,
+    source: draft.source.kind === 'image' ? 'imagem' : draft.source.kind,
+    sourceFile: draft.source.fileName || '',
+    confidence: summary.level,
+    __imported: true,
+  }
 }
 
 async function extractImage(file, onProgress) {
   const result = await recognizeImage(file, onProgress)
   const text = normalizeReceiptText(result.text)
-  const description = firstLikelyMerchant(text)
-  const amount = largestMoney(text)
-  return [{
-    id: uid(), type: 'despesa', amount, description, rawDescription: text,
-    category: suggestCategory(`${description}\n${text}`, 'despesa'),
-    categorySuggested: true,
-    paymentMethod: suggestPaymentMethod(text),
-    date: dateFromText(text),
-    source: 'imagem', sourceFile: file.name,
-    confidence: Number(result.confidence || 0) >= 70 && amount > 0 ? 'media' : 'baixa',
-    __imported: true,
-  }]
+  const receivedAt = Number(file.lastModified) > 0 ? new Date(file.lastModified).toISOString() : undefined
+  return [draftToLegacyRow(parseReceiptText(text, {
+    fileName: file.name,
+    ocrConfidence: result.confidence,
+    receivedAt,
+    referenceYear: receivedAt ? Number(receivedAt.slice(0, 4)) : new Date().getFullYear(),
+  }))]
 }
 
 function enrichRows(rows, file) {

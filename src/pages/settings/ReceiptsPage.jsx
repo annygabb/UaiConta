@@ -2,11 +2,14 @@ import React, { useEffect, useRef, useState } from 'react'
 import { IconCamera, IconDownload, IconFileInvoice, IconPlus, IconTrash, IconX } from '@tabler/icons-react'
 import { receiptRepository } from '../../features/receipts/receipt.repository.ts'
 import { recognizeImage, normalizeReceiptText } from '../../features/receipts/ocr.ts'
+import { parseStructuredReceipt, reconcileReceipt } from '../../features/receipts/structuredReceipt.ts'
+import { extractPdfPageTexts, rasterizePdfPages } from '../../pdfParserFree.js'
 import { isSupabaseConfigured } from '../../infrastructure/supabase/client.ts'
 import { formatCents, reaisToCents } from '../../domain/money/money.ts'
 import FileUploadPanel from '../../components/ui/FileUploadPanel.jsx'
 import PurpleDatePicker from '../../components/ui/PurpleDatePicker.jsx'
 import SelectField from '../../components/ui/SelectField.jsx'
+import { CATEGORIES, PAYMENT_METHODS } from '../../constants.js'
 
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp'
 
@@ -18,7 +21,9 @@ export default function ReceiptsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [ocr, setOcr] = useState(null)
-  const [form, setForm] = useState({ documentType: 'nota_fiscal', merchantName: '', documentDate: '', total: '', notes: '' })
+  const [structured, setStructured] = useState(null)
+  const [importBatchId, setImportBatchId] = useState(() => crypto.randomUUID())
+  const [form, setForm] = useState({ documentType: 'nota_fiscal', merchantName: '', documentDate: '', total: '', category: 'Não categorizado', paymentMethod: 'Não identificado', notes: '' })
   const cameraRef = useRef(null)
 
   async function reload() {
@@ -44,15 +49,42 @@ export default function ReceiptsPage() {
     setOpen(false)
     setFiles([])
     setOcr(null)
-    setForm({ documentType: 'nota_fiscal', merchantName: '', documentDate: '', total: '', notes: '' })
+    setStructured(null)
+    setImportBatchId(crypto.randomUUID())
+    setForm({ documentType: 'nota_fiscal', merchantName: '', documentDate: '', total: '', category: 'Não categorizado', paymentMethod: 'Não identificado', notes: '' })
   }
 
-  async function runOcr(file) {
-    if (!file?.type?.startsWith('image/')) return
+  async function runOcr() {
+    if (!files.length) return
     setOcr({ status: 'processing', progress: 0, text: '' })
     try {
-      const result = await recognizeImage(file, (progress) => setOcr((state) => ({ ...(state || {}), status: 'processing', progress })))
-      setOcr({ status: 'done', progress: 1, text: normalizeReceiptText(result.text), confidence: result.confidence })
+      const parts = []
+      const confidences = []
+      for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
+        const file = files[fileIndex]
+        if (file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf')) {
+          const pageTexts = await extractPdfPageTexts(file)
+          if (pageTexts.length > 20) throw new Error(`${file.name}: a leitura estruturada aceita até 20 páginas por PDF. Divida o documento e tente novamente.`)
+          const scannedPages = pageTexts.filter((page) => normalizeReceiptText(page.text).length < 20).map((page) => page.pageNumber)
+          const rendered = scannedPages.length ? await rasterizePdfPages(file, scannedPages) : []
+          let renderedIndex = 0
+          for (let pageIndex = 0; pageIndex < pageTexts.length; pageIndex += 1) {
+            const page = pageTexts[pageIndex]
+            if (!scannedPages.includes(page.pageNumber)) { parts.push(page.text); confidences.push(80); continue }
+            const result = await recognizeImage(rendered[renderedIndex], (progress) => setOcr((state) => ({ ...(state || {}), status: 'processing', progress: (fileIndex + (pageIndex + progress) / pageTexts.length) / files.length })))
+            renderedIndex += 1; parts.push(result.text); confidences.push(result.confidence)
+          }
+        } else {
+          const result = await recognizeImage(file, (progress) => setOcr((state) => ({ ...(state || {}), status: 'processing', progress: (fileIndex + progress) / files.length })))
+          parts.push(result.text); confidences.push(result.confidence)
+        }
+      }
+      const text = normalizeReceiptText(parts.join('\n'))
+      const confidence = confidences.length ? confidences.reduce((sum, value) => sum + value, 0) / confidences.length : 0
+      const parsed = parseStructuredReceipt(text)
+      setStructured(parsed)
+      setForm((current) => ({ ...current, merchantName: parsed.merchantName, documentDate: parsed.documentDate || current.documentDate, total: parsed.totalAmountCents ? (parsed.totalAmountCents / 100).toFixed(2).replace('.', ',') : current.total, paymentMethod: parsed.paymentMethod }))
+      setOcr({ status: 'done', progress: 1, text, confidence })
     } catch (err) {
       setOcr({ status: 'failed', progress: 0, text: '', error: err?.message || 'OCR indisponível.' })
     }
@@ -64,12 +96,22 @@ export default function ReceiptsPage() {
     setSaving(true)
     setError('')
     try {
-      await receiptRepository.create({
+      if (!form.documentDate) throw new Error('Confirme a data da compra antes de continuar.')
+      if (!form.total || reaisToCents(form.total) <= 0) throw new Error('Confirme um valor total maior que zero.')
+      if (!structured) throw new Error('Leia o documento e revise os dados antes de confirmar.')
+      const reviewedTotalCents = reaisToCents(form.total)
+      const balance = reconcileReceipt({ ...structured, totalAmountCents: reviewedTotalCents })
+      if (!balance.balanced && !window.confirm(`A soma dos itens difere do total em ${formatCents(Math.abs(balance.differenceCents))}. Deseja confirmar mesmo assim?`)) return
+      await receiptRepository.createStructured({
+        importBatchId,
         merchantName: form.merchantName || undefined,
         documentType: form.documentType,
         documentDate: form.documentDate || undefined,
-        totalAmountCents: form.total ? reaisToCents(form.total) : undefined,
-        notes: [form.notes, ocr?.text ? `OCR:\n${ocr.text}` : ''].filter(Boolean).join('\n\n') || undefined,
+        totalAmountCents: reviewedTotalCents,
+        notes: form.notes || undefined,
+        paymentMethod: form.paymentMethod,
+        category: form.category,
+        items: structured.items,
       }, files.map((file, index) => ({ file, pageOrder: index })))
       resetDialog()
       await reload()
@@ -107,9 +149,11 @@ export default function ReceiptsPage() {
       <label><span>Estabelecimento</span><input value={form.merchantName} onChange={(e)=>setForm((p)=>({...p,merchantName:e.target.value}))}/></label>
       <label><span>Data</span><PurpleDatePicker value={form.documentDate} onChange={(value)=>setForm((p)=>({...p,documentDate:value}))} placeholder="Selecionar data" ariaLabel="Data do documento" /></label>
       <label><span>Valor total</span><input inputMode="decimal" placeholder="0,00" value={form.total} onChange={(e)=>setForm((p)=>({...p,total:e.target.value}))}/></label>
+      <label><span>Categoria</span><SelectField value={form.category} onChange={(value)=>setForm((p)=>({...p,category:value}))} options={CATEGORIES.map((value)=>({value,label:value}))} ariaLabel="Categoria da compra" /></label>
+      <label><span>Forma de pagamento</span><SelectField value={form.paymentMethod} onChange={(value)=>setForm((p)=>({...p,paymentMethod:value}))} options={PAYMENT_METHODS.map((value)=>({value,label:value}))} ariaLabel="Forma de pagamento" /></label>
       <label className="full"><span>Observação</span><textarea rows="3" value={form.notes} onChange={(e)=>setForm((p)=>({...p,notes:e.target.value}))}/></label>
-      <div className="full file-uploader"><FileUploadPanel items={files} onFilesAdded={addFiles} onFileRemove={removeUpload} maxFiles={10} maxSizeMB={20} accept={ACCEPT} helper="Arraste PDFs ou imagens, ou clique para escolher da galeria."/><input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={(e)=>{ addFiles(e.target.files); e.target.value='' }} hidden/><div className="camera-upload-row"><button type="button" className="ghost-btn" onClick={() => cameraRef.current?.click()}><IconCamera size={17}/> Tirar foto</button>{files.some((file)=>file.type.startsWith('image/'))&&<button type="button" className="ghost-btn" onClick={()=>runOcr(files.find((file)=>file.type.startsWith('image/')))}>Executar OCR na primeira imagem</button>}</div>{ocr && <div className={`ocr-status ${ocr.status}`}><strong>{ocr.status==='processing'?'Lendo imagem...':ocr.status==='done'?'Texto extraído':'OCR falhou, mas o documento ainda pode ser salvo'}</strong>{ocr.status==='processing'&&<progress value={ocr.progress} max="1"/>}{ocr.text&&<pre>{ocr.text.slice(0,1500)}</pre>}</div>}</div>
-      <div className="dialog-actions full"><button type="button" className="ghost-btn" onClick={resetDialog}>Cancelar</button><button className="primary-btn" disabled={saving}>{saving?'Salvando...':'Salvar original'}</button></div>
+      <div className="full file-uploader"><FileUploadPanel items={files} onFilesAdded={addFiles} onFileRemove={removeUpload} maxFiles={10} maxSizeMB={20} accept={ACCEPT} helper="Arraste PDFs ou imagens, ou clique para escolher da galeria."/><input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={(e)=>{ addFiles(e.target.files); e.target.value='' }} hidden/><div className="camera-upload-row"><button type="button" className="ghost-btn" onClick={() => cameraRef.current?.click()}><IconCamera size={17}/> Tirar foto</button>{files.length>0&&<button type="button" className="ghost-btn" onClick={runOcr}>Ler e estruturar todos os arquivos</button>}</div>{ocr && <div className={`ocr-status ${ocr.status}`}><strong>{ocr.status==='processing'?'Lendo documento...':ocr.status==='done'?'Dados extraídos para revisão':'A leitura falhou; tente outra imagem ou PDF'}</strong>{ocr.status==='processing'&&<progress value={ocr.progress} max="1"/>}</div>}{structured&&<div className="receipt-review"><div className="receipt-review-head"><strong>Itens reconhecidos</strong><span>{structured.items.length} itens</span></div>{structured.warnings.map((warning)=><p className="inline-alert" key={warning}>{warning}</p>)}{structured.items.map((item,index)=><div className="receipt-item-row" key={`${item.description}-${index}`}><input aria-label={`Descrição do item ${index+1}`} value={item.description} onChange={(event)=>setStructured((current)=>({...current,items:current.items.map((entry,itemIndex)=>itemIndex===index?{...entry,description:event.target.value}:entry)}))}/><input aria-label={`Quantidade do item ${index+1}`} type="number" min="0.001" step="0.001" value={item.quantity} onChange={(event)=>setStructured((current)=>({...current,items:current.items.map((entry,itemIndex)=>itemIndex===index?{...entry,quantity:Number(event.target.value)}:entry)}))}/><input aria-label={`Total do item ${index+1}`} inputMode="decimal" value={(item.totalPriceCents/100).toFixed(2).replace('.',',')} onChange={(event)=>setStructured((current)=>({...current,items:current.items.map((entry,itemIndex)=>itemIndex===index?{...entry,totalPriceCents:reaisToCents(event.target.value)}:entry)}))}/><button type="button" className="icon-btn" aria-label={`Remover item ${index+1}`} onClick={()=>setStructured((current)=>({...current,items:current.items.filter((_,itemIndex)=>itemIndex!==index)}))}><IconTrash size={16}/></button></div>)}<button type="button" className="ghost-btn" onClick={()=>setStructured((current)=>({...current,items:[...current.items,{description:'Novo item',quantity:1,unitPriceCents:null,totalPriceCents:0,confidence:'baixa'}]}))}><IconPlus size={16}/> Adicionar item</button></div>}</div>
+      <div className="dialog-actions full"><button type="button" className="ghost-btn" onClick={resetDialog}>Cancelar</button><button className="primary-btn" disabled={saving||!structured}>{saving?'Confirmando...':'Confirmar nota e despesa'}</button></div>
     </form></section></div>}
   </div>
 }

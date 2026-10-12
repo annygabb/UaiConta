@@ -10,6 +10,37 @@ permissions:
   contents: read
 
 jobs:
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.120.0
+      - name: Start local Supabase without applying incremental migrations
+        run: |
+          mkdir -p /tmp/uaiconta-migrations
+          mv supabase/migrations/*.sql /tmp/uaiconta-migrations/
+          supabase start
+      - name: Apply schema and migrations
+        run: |
+          psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/schema.sql
+          for migration in /tmp/uaiconta-migrations/*.sql; do
+            psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f "$migration"
+          done
+          mv /tmp/uaiconta-migrations/*.sql supabase/migrations/
+      - name: Database tests
+        run: supabase test db
+      - name: Database lint
+        run: supabase db lint --local --level warning
+      - name: Stop local Supabase
+        if: always()
+        run: |
+          if command -v supabase >/dev/null 2>&1; then
+            supabase stop --no-backup
+          fi
+
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 20

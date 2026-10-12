@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { displayDescriptionFromRaw, ensurePdfRuntimeCompatibility, isInformationalChunk, markPossibleDuplicates, parseFinancialText, readPdfFileAsArrayBuffer, shouldUseMainThreadPdfWorker } from '../../src/pdfParserFree.js'
+
+const fixture = (name) => readFileSync(
+  fileURLToPath(new URL(`../fixtures/statements/${name}`, import.meta.url)),
+  'utf8',
+)
 
 describe('parser local de PDF', () => {
   it('ignora aviso legal/contratual de fatura', () => {
@@ -75,5 +82,33 @@ describe('parser local de PDF', () => {
     expect(rows.map((row) => row.date)).toEqual(['2026-09-07', '2026-09-07', '2026-09-06'])
     expect(rows[0].type).toBe('receita')
     expect(rows[1].type).toBe('despesa')
+  })
+
+  it('separa movimentações pelos cabeçalhos de agosto e setembro', () => {
+    const rows = parseFinancialText(fixture('multi-month.txt'), {
+      referenceYear: 2026,
+      sourceFile: 'multimeses.pdf',
+    })
+
+    expect(rows).toHaveLength(3)
+    expect(rows.map((row) => row.date)).toEqual([
+      '2026-08-15',
+      '2026-08-20',
+      '2026-09-02',
+    ])
+    expect(rows.map((row) => row.amount)).toEqual([125.9, 800, 45])
+    expect(rows.every((row) => row.dateResolution.rule === 'month_heading')).toBe(true)
+    expect(rows.every((row) => row.fieldEvidence.date.value === row.date)).toBe(true)
+    expect(rows.every((row) => row.requiresReview === false)).toBe(true)
+  })
+
+  it('resolve a virada dezembro/janeiro usando o ano de referência final', () => {
+    const rows = parseFinancialText(fixture('year-boundary.txt'), {
+      referenceYear: 2026,
+      sourceFile: 'virada.pdf',
+    })
+
+    expect(rows).toHaveLength(2)
+    expect(rows.map((row) => row.date)).toEqual(['2025-12-31', '2026-01-02'])
   })
 })

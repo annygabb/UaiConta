@@ -3,6 +3,8 @@ import { IconAlertTriangle, IconCheck, IconLoader2, IconTrash, IconX } from '@ta
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from '../constants.js'
 import { markPossibleDuplicates } from '../pdfParserFree.js'
 import { extractTransactionsFromFile } from '../features/import/importParser.js'
+import { applyDuplicateDecision } from '../features/import/duplicateDetection.ts'
+import { isImportRowReady, prepareConfirmedRows } from '../features/import/importConfirmation.ts'
 import { clearImportDraft, loadImportDraft, saveImportDraft } from '../features/import/importDraftStore.js'
 import { dateLabel, money } from '../utils.js'
 import { Badge } from './Common.jsx'
@@ -49,6 +51,25 @@ function friendlyFileError(error, fileName = 'Arquivo') {
   return raw || `${fileName}: falha ao ler arquivo.`
 }
 
+export function DuplicateDecisionCard({ row, candidate, onDecision }) {
+  const match = candidate?.candidate
+  if (!match) return null
+  return (
+    <div className="duplicate-decision" aria-label={`Decidir duplicidade de ${row.description}`}>
+      <div className="duplicate-decision-copy">
+        <strong>Encontramos uma movimentação parecida</strong>
+        <span>{match.description || 'Movimentação existente'} · {dateLabel(match.date)} · {money(match.amount ?? Number(match.amountCents || 0) / 100)}</span>
+      </div>
+      <div className="duplicate-decision-actions">
+        <button type="button" onClick={() => onDecision('keep_both')}>Manter as duas</button>
+        <button type="button" onClick={() => onDecision('ignore_new')}>Ignorar a nova</button>
+        <button type="button" onClick={() => onDecision('replace_existing')}>Substituir a anterior</button>
+        <button type="button" onClick={() => onDecision('edit_new')}>Corrigir informações</button>
+      </div>
+    </div>
+  )
+}
+
 export default function PdfImportModal({ existingTransactions, onClose, onImport }) {
   const queueRef = useRef([])
   const workerRef = useRef(false)
@@ -62,7 +83,7 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
   const [message, setMessage] = useState('')
   const [restored, setRestored] = useState(false)
 
-  const selectedRows = useMemo(() => rows.filter((row) => row.__selected && !row.__possibleDuplicate && Number(row.amount || 0) > 0), [rows])
+  const selectedRows = useMemo(() => rows.filter((row) => row.__selected && !row.__possibleDuplicate && isImportRowReady(row)), [rows])
 
   useEffect(() => {
     let active = true
@@ -115,7 +136,7 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
         setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: 'processando', error: '' } : entry))
         try {
           const parsed = await extractTransactionsFromFile(item.file)
-          const marked = markPossibleDuplicates(parsed, [...existingTransactions, ...processedRef.current]).map((row) => ({ ...row, __selected: !row.__possibleDuplicate && Number(row.amount || 0) > 0, __amountInput: toEditableAmount(row.amount) }))
+          const marked = markPossibleDuplicates(parsed, [...existingTransactions, ...processedRef.current]).map((row) => ({ ...row, __selected: !row.__possibleDuplicate && !row.requiresReview && Number(row.amount || 0) > 0, __amountInput: toEditableAmount(row.amount) }))
           processedRef.current = [...processedRef.current.filter((row) => row.sourceFile !== item.name), ...marked]
           setRows((current) => [...current.filter((row) => row.sourceFile !== item.name), ...marked])
           setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: 'processado', count: parsed.length, error: '' } : entry))
@@ -130,6 +151,39 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
   }
 
   function updateRow(id, patch) { setRows((current) => current.map((row) => row.id === id ? { ...row, ...patch } : row)) }
+
+  function selectRow(row, checked) {
+    if (!checked) {
+      updateRow(row.id, { __selected: false })
+      return
+    }
+    const hasRequiredFields = Number(row.amount || 0) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(row.date || '') && String(row.description || '').trim().length >= 2
+    if (!hasRequiredFields) {
+      setMessage('Preencha data, descrição e valor antes de selecionar a movimentação.')
+      return
+    }
+    updateRow(row.id, { __selected: true, __reviewConfirmed: true })
+    setMessage('')
+  }
+
+  function decideDuplicate(row, decision) {
+    const candidate = row.__duplicateCandidates?.[0]?.candidate
+    const result = applyDuplicateDecision({ decision, draft: row, candidate })
+    const label = {
+      keep_both: 'manter as duas',
+      ignore_new: 'ignorar a nova',
+      replace_existing: 'substituir a anterior',
+      edit_new: 'corrigir informações',
+    }[decision]
+    updateRow(row.id, {
+      ...result.draft,
+      __possibleDuplicate: false,
+      __ignored: result.status === 'ignored',
+      __editingDuplicate: result.status === 'editing',
+      __selected: result.status === 'ready' && !row.requiresReview && Number(row.amount || 0) > 0,
+      __duplicateDecisionLabel: label,
+    })
+  }
 
   function removeFile(id) {
     const file = files.find((entry) => entry.id === id)
@@ -154,7 +208,7 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
     if (!selectedRows.length || importing) return
     setImporting(true)
     try {
-      await onImport(selectedRows.map(({ __selected, __possibleDuplicate, __amountInput, categorySuggested: _categorySuggested, ...row }) => ({ ...row, amount: Number(row.amount || 0) })))
+      await onImport(prepareConfirmedRows(rows))
       await clearImportDraft()
       onClose()
     } finally { setImporting(false) }
@@ -187,24 +241,28 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
           <section className="pdf-review">
             <div className="section-line review-heading">
               <div><strong>Revise antes de importar</strong><small>{rows.length} itens encontrados · {selectedRows.length} prontos para importar</small></div>
-              <div className="review-bulk"><button onClick={() => setRows((current) => current.map((row) => ({ ...row, __selected: !row.__possibleDuplicate && Number(row.amount || 0) > 0 })))}>Selecionar seguros</button><button onClick={() => setRows((current) => current.map((row) => ({ ...row, __selected: false })))}>Limpar</button></div>
+              <div className="review-bulk"><button onClick={() => setRows((current) => current.map((row) => ({ ...row, __selected: !row.__possibleDuplicate && !row.requiresReview && isImportRowReady({ ...row, __selected: true }) })))}>Selecionar seguros</button><button onClick={() => setRows((current) => current.map((row) => ({ ...row, __selected: false })))}>Limpar</button></div>
             </div>
             <div className="review-list">
               {rows.map((row) => {
                 const categories = row.type === 'receita' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
+                const duplicateCandidate = row.__duplicateCandidates?.[0]
                 return (
                   <article className={row.__possibleDuplicate ? 'review-row duplicate' : 'review-row'} key={row.id}>
-                    <PurpleCheckbox checked={Boolean(row.__selected)} onCheckedChange={(checked) => updateRow(row.id, { __selected: checked })} ariaLabel={`Selecionar ${row.description}`} />
+                    <PurpleCheckbox checked={Boolean(row.__selected && !row.__possibleDuplicate && !row.__ignored)} onCheckedChange={(checked) => !row.__possibleDuplicate && !row.__ignored && selectRow(row, checked)} ariaLabel={`Selecionar ${row.description}`} />
                     <div className="review-main">
                       <input className="review-description" value={row.description} onChange={(event) => updateRow(row.id, { description: event.target.value })} aria-label="Descrição importada" />
                       <div className="review-meta"><span>{dateLabel(row.date)}</span><span>{row.sourceFile}</span><Badge tone={row.confidence === 'alta' ? 'success' : row.confidence === 'media' ? 'warning' : 'danger'}>confiança {row.confidence}</Badge>{row.categorySuggested && <Badge tone="warning">categoria sugerida</Badge>}{row.__possibleDuplicate && <Badge tone="danger">possível duplicado</Badge>}</div>
                       <div className="review-fields import-review-grid-v5">
-                        <label className="review-amount-field"><span>Valor</span><input inputMode="decimal" value={row.__amountInput ?? toEditableAmount(row.amount)} onChange={(event) => updateRow(row.id, { __amountInput: event.target.value, amount: fromEditableAmount(event.target.value) })} /></label>
+                        <label className="review-amount-field"><span>Valor</span><input inputMode="decimal" value={row.__amountInput ?? toEditableAmount(row.amount)} onChange={(event) => { const amount = fromEditableAmount(event.target.value); updateRow(row.id, { __amountInput: event.target.value, amount, amountCents: Math.round(amount * 100), __selected: false, __reviewConfirmed: false }) }} /></label>
                         <SelectField value={row.type} onChange={(value) => updateRow(row.id, { type: value, category: value === 'receita' ? INCOME_CATEGORIES[0] : defaultExpenseCategory(), categorySuggested: true })} options={[{ value: 'despesa', label: 'Despesa' }, { value: 'receita', label: 'Receita' }]} ariaLabel="Tipo de movimentação importada" />
                         <SelectField value={row.category} onChange={(value) => updateRow(row.id, { category: value, categorySuggested: false })} options={categories} ariaLabel="Categoria importada" />
                         <SelectField value={row.paymentMethod} onChange={(value) => updateRow(row.id, { paymentMethod: value })} options={PAYMENT_METHODS} ariaLabel="Forma de pagamento importada" />
-                        <PurpleDatePicker value={row.date} onChange={(value) => updateRow(row.id, { date: value })} ariaLabel={`Data de ${row.description}`} />
+                        <PurpleDatePicker value={row.date} onChange={(value) => updateRow(row.id, { date: value, __selected: false, __reviewConfirmed: false })} ariaLabel={`Data de ${row.description}`} />
                       </div>
+                      {row.__possibleDuplicate && <DuplicateDecisionCard row={row} candidate={duplicateCandidate} onDecision={(decision) => decideDuplicate(row, decision)} />}
+                      {row.__duplicateDecisionLabel && <div className="duplicate-decision-status">Decisão: {row.__duplicateDecisionLabel}</div>}
+                      {row.requiresReview && !row.__reviewConfirmed && <div className="review-warning">Revise os campos de baixa confiança e marque esta movimentação para confirmar.</div>}
                       {Number(row.amount || 0) <= 0 && <div className="review-warning">Não encontramos um valor confiável neste arquivo. Informe o valor antes de selecionar.</div>}
                     </div>
                     <strong className={row.type === 'receita' ? 'review-value positive' : 'review-value'}>{row.type === 'receita' ? '+' : '-'}{money(row.amount)}</strong>

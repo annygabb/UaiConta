@@ -41,6 +41,7 @@ export const ROUTES = {
   budgets: '/orcamentos',
   goals: '/metas',
   receipts: '/notas',
+  whatsapp: '/whatsapp',
   preferences: '/preferencias',
   privacy: '/privacidade',
   data: '/dados',

@@ -13,6 +13,7 @@ import {
   IconRepeat,
   IconTargetArrow,
   IconWallet,
+  IconBrandWhatsapp,
 } from '@tabler/icons-react'
 import { ROUTES } from '../constants.js'
 import { Panel } from '../components/Common.jsx'
@@ -27,6 +28,7 @@ const items = [
   { icon: IconChartPie, title: 'Orçamentos', text: 'Defina limites e acompanhe o que já foi usado.', to: ROUTES.budgets },
   { icon: IconTargetArrow, title: 'Metas', text: 'Acompanhe objetivos e reservas.', to: ROUTES.goals },
   { icon: IconFileInvoice, title: 'Notas e comprovantes', text: 'PDF, imagem, câmera e original privado.', to: ROUTES.receipts },
+  { icon: IconBrandWhatsapp, title: 'WhatsApp', text: 'Crie e confirme rascunhos financeiros por mensagem.', to: ROUTES.whatsapp },
   { icon: IconDatabase, title: 'Dados e backup', text: 'Exporte em JSON, PDF ou Excel e gerencie sua conta.', to: ROUTES.data },
 ]
 
