@@ -4,7 +4,8 @@ import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from '../const
 import { markPossibleDuplicates } from '../pdfParserFree.js'
 import { extractTransactionsFromFile } from '../features/import/importParser.js'
 import { applyDuplicateDecision } from '../features/import/duplicateDetection.ts'
-import { isImportRowReady, prepareConfirmedRows } from '../features/import/importConfirmation.ts'
+import { prepareConfirmedRows } from '../features/import/importConfirmation.ts'
+import { clearImportRowSelection, getSelectedImportRows, includePossibleDuplicates, selectAllImportRows, setImportRowSelected } from '../features/import/importSelection.ts'
 import { clearImportDraft, loadImportDraft, saveImportDraft } from '../features/import/importDraftStore.js'
 import { dateLabel, money } from '../utils.js'
 import { Badge } from './Common.jsx'
@@ -83,7 +84,8 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
   const [message, setMessage] = useState('')
   const [restored, setRestored] = useState(false)
 
-  const selectedRows = useMemo(() => rows.filter((row) => row.__selected && !row.__possibleDuplicate && isImportRowReady(row)), [rows])
+  const selectedRows = useMemo(() => getSelectedImportRows(rows), [rows])
+  const possibleDuplicateCount = useMemo(() => rows.filter((row) => row.__possibleDuplicate && !row.__ignored).length, [rows])
 
   useEffect(() => {
     let active = true
@@ -136,7 +138,12 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
         setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: 'processando', error: '' } : entry))
         try {
           const parsed = await extractTransactionsFromFile(item.file)
-          const marked = markPossibleDuplicates(parsed, [...existingTransactions, ...processedRef.current]).map((row) => ({ ...row, __selected: !row.__possibleDuplicate && !row.requiresReview && Number(row.amount || 0) > 0, __amountInput: toEditableAmount(row.amount) }))
+          const marked = markPossibleDuplicates(parsed, [...existingTransactions, ...processedRef.current]).map((row) => {
+            const editable = { ...row, __selected: false, __amountInput: toEditableAmount(row.amount) }
+            return !row.__possibleDuplicate && !row.requiresReview
+              ? setImportRowSelected(editable, true)
+              : editable
+          })
           processedRef.current = [...processedRef.current.filter((row) => row.sourceFile !== item.name), ...marked]
           setRows((current) => [...current.filter((row) => row.sourceFile !== item.name), ...marked])
           setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: 'processado', count: parsed.length, error: '' } : entry))
@@ -153,16 +160,12 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
   function updateRow(id, patch) { setRows((current) => current.map((row) => row.id === id ? { ...row, ...patch } : row)) }
 
   function selectRow(row, checked) {
-    if (!checked) {
-      updateRow(row.id, { __selected: false })
-      return
-    }
-    const hasRequiredFields = Number(row.amount || 0) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(row.date || '') && String(row.description || '').trim().length >= 2
-    if (!hasRequiredFields) {
+    const updated = setImportRowSelected(row, checked)
+    if (checked && !updated.__selected) {
       setMessage('Preencha data, descrição e valor antes de selecionar a movimentação.')
       return
     }
-    updateRow(row.id, { __selected: true, __reviewConfirmed: true })
+    updateRow(row.id, updated)
     setMessage('')
   }
 
@@ -175,14 +178,15 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
       replace_existing: 'substituir a anterior',
       edit_new: 'corrigir informações',
     }[decision]
-    updateRow(row.id, {
+    const updated = {
       ...result.draft,
       __possibleDuplicate: false,
       __ignored: result.status === 'ignored',
       __editingDuplicate: result.status === 'editing',
-      __selected: result.status === 'ready' && !row.requiresReview && Number(row.amount || 0) > 0,
+      __selected: false,
       __duplicateDecisionLabel: label,
-    })
+    }
+    updateRow(row.id, result.status === 'ready' ? setImportRowSelected(updated, true) : updated)
   }
 
   function removeFile(id) {
@@ -208,7 +212,7 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
     if (!selectedRows.length || importing) return
     setImporting(true)
     try {
-      await onImport(prepareConfirmedRows(rows))
+      await onImport(prepareConfirmedRows(selectedRows))
       await clearImportDraft()
       onClose()
     } finally { setImporting(false) }
@@ -241,7 +245,11 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
           <section className="pdf-review">
             <div className="section-line review-heading">
               <div><strong>Revise antes de importar</strong><small>{rows.length} itens encontrados · {selectedRows.length} prontos para importar</small></div>
-              <div className="review-bulk"><button onClick={() => setRows((current) => current.map((row) => ({ ...row, __selected: !row.__possibleDuplicate && !row.requiresReview && isImportRowReady({ ...row, __selected: true }) })))}>Selecionar seguros</button><button onClick={() => setRows((current) => current.map((row) => ({ ...row, __selected: false })))}>Limpar</button></div>
+              <div className="review-bulk">
+                <button type="button" onClick={() => setRows((current) => selectAllImportRows(current))}>Selecionar todos</button>
+                {possibleDuplicateCount > 0 && <button type="button" onClick={() => setRows((current) => includePossibleDuplicates(current))}>Subir também possíveis duplicados</button>}
+                <button type="button" onClick={() => setRows((current) => clearImportRowSelection(current))}>Limpar seleção</button>
+              </div>
             </div>
             <div className="review-list">
               {rows.map((row) => {
@@ -249,9 +257,9 @@ export default function PdfImportModal({ existingTransactions, onClose, onImport
                 const duplicateCandidate = row.__duplicateCandidates?.[0]
                 return (
                   <article className={row.__possibleDuplicate ? 'review-row duplicate' : 'review-row'} key={row.id}>
-                    <PurpleCheckbox checked={Boolean(row.__selected && !row.__possibleDuplicate && !row.__ignored)} onCheckedChange={(checked) => !row.__possibleDuplicate && !row.__ignored && selectRow(row, checked)} ariaLabel={`Selecionar ${row.description}`} />
+                    <PurpleCheckbox checked={Boolean(row.__selected && !row.__ignored)} disabled={Boolean(row.__ignored)} onCheckedChange={(checked) => selectRow(row, checked)} ariaLabel={`Selecionar ${row.description}`} className="review-row-checkbox" />
                     <div className="review-main">
-                      <input className="review-description" value={row.description} onChange={(event) => updateRow(row.id, { description: event.target.value })} aria-label="Descrição importada" />
+                      <input className="review-description" value={row.description} onChange={(event) => updateRow(row.id, { description: event.target.value, __selected: false, __reviewConfirmed: false })} aria-label="Descrição importada" />
                       <div className="review-meta"><span>{dateLabel(row.date)}</span><span>{row.sourceFile}</span><Badge tone={row.confidence === 'alta' ? 'success' : row.confidence === 'media' ? 'warning' : 'danger'}>confiança {row.confidence}</Badge>{row.categorySuggested && <Badge tone="warning">categoria sugerida</Badge>}{row.__possibleDuplicate && <Badge tone="danger">possível duplicado</Badge>}</div>
                       <div className="review-fields import-review-grid-v5">
                         <label className="review-amount-field"><span>Valor</span><input inputMode="decimal" value={row.__amountInput ?? toEditableAmount(row.amount)} onChange={(event) => { const amount = fromEditableAmount(event.target.value); updateRow(row.id, { __amountInput: event.target.value, amount, amountCents: Math.round(amount * 100), __selected: false, __reviewConfirmed: false }) }} /></label>
