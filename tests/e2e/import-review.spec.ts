@@ -32,3 +32,33 @@ test('baixa confiança não altera totais antes da confirmação explícita', as
   await page.getByRole('checkbox', { name: 'Selecionar Supermercado Central' }).check()
   await expect(page.getByRole('button', { name: /Importar 1 movimentações/i })).toBeEnabled()
 })
+
+test('seleção em massa mantém duplicados pendentes e permite incluí-los em uma ação separada', async ({ page }) => {
+  await page.goto('/mais')
+  await page.evaluate(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
+  await page.reload()
+  await enterDemo(page)
+
+  await page.getByRole('button', { name: /Importar arquivos/i }).click()
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'duplicados.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from([
+      'data;descricao;valor;categoria;forma_pagamento',
+      '01/10/2026;Supermercado Central;-42,90;Supermercado;Pix',
+      '01/10/2026;Supermercado Central;-42,90;Supermercado;Pix',
+      '01/10/2026;Supermercado Central;-42,90;Supermercado;Pix',
+    ].join('\n')),
+  })
+
+  await expect(page.getByText('possível duplicado').first()).toBeVisible()
+  await page.getByRole('button', { name: 'Selecionar todos' }).click()
+  await expect(page.getByRole('button', { name: /Importar 1 movimentações/i })).toBeEnabled()
+
+  await page.getByRole('button', { name: 'Subir também possíveis duplicados' }).click()
+  await expect(page.getByRole('button', { name: /Importar 3 movimentações/i })).toBeEnabled()
+  await expect(page.getByText('Decisão: manter as duas')).toHaveCount(2)
+})
